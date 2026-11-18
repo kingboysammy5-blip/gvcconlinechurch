@@ -1,0 +1,192 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated congregation member profile synced with Google Sign-In.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the member.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Member display name.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Verified member email address (PII, owner-only read).",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "bestScore": {
+          "type": "integer",
+          "description": "Personal high score in Shepherd's Light 2D game."
+        },
+        "gamesPlayed": {
+          "type": "integer",
+          "description": "Total completed Sanctuary game runs."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": ["uid", "displayName", "email", "bestScore", "gamesPlayed", "createdAt", "updatedAt"]
+    },
+    "ResearchBookmark": {
+      "title": "ResearchBookmark",
+      "description": "Saved Google Search-grounded Scripture and ministry insight generated with gemini-4-hydrogen.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "query": {
+          "type": "string",
+          "description": "User question submitted to the Search-Grounded assistant.",
+          "minLength": 2,
+          "maxLength": 500
+        },
+        "answer": {
+          "type": "string",
+          "description": "Grounded markdown response text.",
+          "minLength": 1,
+          "maxLength": 12000
+        },
+        "sourceTitles": {
+          "type": "array",
+          "description": "Bounded list of grounded web source titles (max 10)."
+        },
+        "sourceUrls": {
+          "type": "array",
+          "description": "Bounded list of grounded web source URLs (max 10)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": ["uid", "query", "answer", "sourceTitles", "sourceUrls", "createdAt", "updatedAt"]
+    },
+    "GameRun": {
+      "title": "GameRun",
+      "description": "Individual completed session in Shepherd's Light 2D Sanctuary Game.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "score": {
+          "type": "integer",
+          "description": "Final session score."
+        },
+        "wave": {
+          "type": "integer",
+          "description": "Highest wave reached."
+        },
+        "lambsSaved": {
+          "type": "integer",
+          "description": "Total lambs guided to the sanctuary fold."
+        },
+        "durationSeconds": {
+          "type": "integer",
+          "description": "Duration of the run in seconds."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of the run."
+        }
+      },
+      "required": ["uid", "score", "wave", "lambsSaved", "durationSeconds", "createdAt"]
+    },
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "Non-PII Sanctuary Game leaderboard entry per verified player.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Player Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Public shepherd display name (no email/PII).",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "bestScore": {
+          "type": "integer",
+          "description": "Highest recorded score."
+        },
+        "bestWave": {
+          "type": "integer",
+          "description": "Highest wave reached."
+        },
+        "totalLambsSaved": {
+          "type": "integer",
+          "description": "Cumulative lambs guided safely."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "First entry timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Latest score update timestamp."
+        }
+      },
+      "required": ["uid", "displayName", "bestScore", "bestWave", "totalLambsSaved", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profile for signed-in GVCC members and visitors."
+    },
+    "/users/{userId}/bookmarks/{bookmarkId}": {
+      "schema": { "$ref": "#/entities/ResearchBookmark" },
+      "description": "Saved Google Search-grounded Scripture & ministry research bookmarks owned by the user."
+    },
+    "/users/{userId}/gameRuns/{runId}": {
+      "schema": { "$ref": "#/entities/GameRun" },
+      "description": "Immutable run logs for Shepherd's Light 2D game sessions."
+    },
+    "/leaderboard/{userId}": {
+      "schema": { "$ref": "#/entities/LeaderboardEntry" },
+      "description": "Non-PII community leaderboard entries for Shepherd's Light 2D Sanctuary Game."
+    }
+  }
+}

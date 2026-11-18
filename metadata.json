@@ -1,0 +1,6 @@
+{
+  "name": "Gospel Vision Christian Centre (GVCC)",
+  "description": "Official church website and management platform for Gospel Vision Christian Centre in Ogembo, Kenya, under the leadership of Bishop Joseph Ondari Gichana.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

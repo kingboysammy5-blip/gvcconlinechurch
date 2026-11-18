@@ -1,0 +1,2128 @@
+GVCC CHURCH WEBSITE & MANAGEMENT APP
+Complete development blueprint, implementation guide, and system specification
+1. Project overview
+The objective is to develop a complete, responsive, interactive church website and church management application for Gospel Vision Christian Centre (GVCC).
+
+The application must not be just a website with static pages. It should function as a digital church platform where visitors can discover the church, experience its ministry, view photographs and videos, connect with church leadership, submit prayer requests, register as members, join fellowships, receive updates, and where authorized church administrators can manage church information.
+
+The website should combine three major experiences:
+Public Church Website
+
+A spiritual, welcoming and immersive digital presence for visitors, believers and the general public.
+
+
+Church Community Platform
+
+Member registration, fellowships, prayer requests, pastoral communication and community engagement.
+
+
+Church Administration
+
+An admin dashboard for managing members, news, images, ministries, services and incoming requests.
+
+
+Responsive Digital Experience
+
+An accessible, mobile-first platform that works across phones, tablets and desktop devices.
+
+
+
+Main objective
+Create a digital environment that allows a person to experience the church online almost as if they were visiting physically.
+
+A first-time visitor should be able to:
+- Understand the identity and mission of GVCC.
+- See the church through authentic photographs.
+- Find worship service information.
+- Read the church's messages and updates.
+- Learn about ministries and fellowships.
+- Submit a prayer request.
+- Plan a visit.
+- Register as a member or visitor.
+- Contact the church.
+- Follow church activities and events.
+Meanwhile, church administrators should be able to manage this information from a central dashboard without editing website code.
+
+2. Source material and church identity
+The development team must treat the uploaded CHURCH.pdf as the primary source of church identity, information and media.
+Verified information
+Gospel Vision Christian Centre (GVCC)
+Location: Ogembo, Kenya
+
+Church leadership: Bishop Joseph Ondari Gichana
+
+Contact: 0727 543 663
+
+These are the identity details provided in the PDF. The application must not invent church service times, ministry names, branches, doctrine, social media accounts or additional leadership details that have not been supplied or confirmed.
+
+The PDF also contains church photographs showing worship, church leadership, preaching, congregational gatherings, fellowship and people participating in church activities. These pictures should be incorporated into the visual identity of the platform.
+
+Source: Uploaded CHURCH.pdf, page 1 and photographic content across the document.
+CHURCH.pdf
+Church information management
+The website must allow authorized administrators to update the following without changing the code:
+- Church name and description
+- Church logo
+- Church location
+- Church contact numbers
+- Church leadership profiles
+- Welcome messages
+- Service schedules
+- Ministry and fellowship descriptions
+- Events
+- Announcements
+- Sermon titles and recordings
+- Gallery photographs
+- Website footer information
+- Scripture or inspirational messages on the homepage
+The website should distinguish between verified information and information awaiting confirmation.
+
+3. Recommended application structure
+The platform should be organized into two major sections.
+A. Public website
+Accessible to everyone without login.
+- Home
+- About GVCC
+- Leadership
+- Our Ministries
+- Fellowships
+- Events
+- News and Updates
+- Gallery
+- Sermons
+- Prayer Request
+- Visit Us
+- Join/Register
+- Contact Us
+
+B. Administration dashboard
+Accessible only to authorized church administrators and staff.
+- Dashboard overview
+- Member management
+- Visitor management
+- Fellowship management
+- Prayer request management
+- News and announcements
+- Events management
+- Gallery and media management
+- Sermon management
+- Leadership and ministry management
+- Messages and follow-up records
+- Admin accounts and permissions
+- Website settings
+- Reports and data export
+
+
+4. Homepage blueprint — the most important part
+The homepage must be designed as an immersive, reflective and welcoming experience.
+
+It should not appear like a business website, an ordinary blog or a basic church template.
+
+The visual theme:
+- Spiritual
+- Reflective
+- Welcoming
+- Cinematic
+- Elegant
+- Human
+- Peaceful
+- Faith-centered
+- Warm and authentic
+Section 1: Top announcement bar
+A small announcement bar at the top of the website.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+12
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Possible content:
+WELCOME TO GOSPEL VISION CHRISTIAN CENTRE — A PLACE OF FAITH, HOPE AND TRANSFORMATION.
+
+This bar should be configurable through the admin dashboard.
+
+Features:
+- Toggle announcement on/off.
+- Change message.
+- Add a link.
+- Set a background color.
+- Optional announcement expiry date.
+- Dismissible on mobile.
+
+Section 2: Navigation header
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+7
+
+
+
+
+
+
+
+
+
+
+
+The navigation bar must be transparent over the slideshow initially.
+Logo area
+- Church logo.
+- Church name: Gospel Vision Christian Centre.
+- Short label: GVCC.
+Navigation menu
+- Home
+- About Us
+- Ministries
+- Fellowship
+- Events
+- Media
+- Contact
+Action buttons
+- PRAYER REQUEST
+- JOIN OUR CHURCH
+On mobile, the navigation must collapse into a hamburger menu.
+Navigation behavior
+- Transparent at the top of the homepage.
+- Changes to a dark or solid background when scrolling.
+- Sticky navigation.
+- Smooth scrolling.
+- Dropdown navigation where necessary.
+- Keyboard navigable.
+- Touch-friendly menu buttons.
+
+5. Hero section — reflective image slideshow
+This is the defining feature of the GVCC website.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+11
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+The entire first screen should feature a full-width image slideshow using the actual photographs from CHURCH.pdf.
+Image source
+Use the actual photographs from the supplied PDF. Do not replace the church's real photographs with stock church photographs.
+
+All available photos should be extracted, organized, optimized and used in the website.
+Slideshow behavior
+- Full viewport height on desktop.
+- Approximately 85–100vh.
+- Responsive height on mobile.
+- Automatic transition every 6–9 seconds.
+- Crossfade between images.
+- Slow zoom effect.
+- Dark gradient overlay.
+- Optional subtle blur on background transitions.
+- Manual previous/next controls.
+- Pause/resume slideshow.
+- Slide indicator.
+- Support swipe gestures on mobile.
+- Respect prefers-reduced-motion.
+Image transition effects
+Use a combination of:
+- Fade in/out.
+- Slow zoom in.
+- Slight horizontal movement.
+- Ken Burns effect.
+- Soft cinematic transitions.
+Do not use aggressive transitions, flashing effects or rapid movement.
+Slideshow image handling
+The pictures should not all be displayed with the same crop.
+
+Use:
+- object-fit: cover for immersive backgrounds.
+- Responsive focal positioning.
+- object-position to preserve the important subject.
+- Portrait images positioned carefully.
+- Desktop and mobile-specific crop behavior where necessary.
+A preacher should not be cropped out of a photo. The main subjects must remain visible.
+
+Section 6: Reflective messages layered over the slideshow
+The slideshow should not only rotate pictures. It should also rotate spiritual messages.
+
+Each slide can have its own text, scripture, heading and button.
+GOSPEL VISION CHRISTIAN CENTRE
+A Place Where Faith Comes Alive
+Discover hope, experience God's presence, and grow in faith with a community committed to the Word.
+PLAN YOUR VISIT
+
+REQUEST PRAYER
+
+
+
+Illustrative homepage hero content and styling concept.Recommended reflective messages
+These are proposed website copy, not verified official church statements. They should be editable in the admin dashboard.
+
+Slide 1 — Welcome
+A Place Where Faith Comes Alive
+
+Discover a community of faith, hope, love and spiritual growth.
+
+Slide 2 — Worship
+Come Into His Presence
+
+A moment of worship. A heart surrendered. A life transformed.
+
+Slide 3 — Fellowship
+You Belong Here
+
+Grow together, pray together and walk together in faith.
+
+Slide 4 — The Word
+Rooted in the Word. Living in Faith.
+
+Let the Word of God guide your journey and strengthen your spirit.
+
+Slide 5 — Hope
+There Is Hope for Every Season
+
+No matter where life takes you, there is grace, hope and a place to begin again.
+
+Slide 6 — Invitation
+Come and Experience the Love of God
+
+We welcome you to join us and be part of the GVCC family.
+Text animation
+The heading should:
+1. Fade in.
+2. Move upward gently.
+3. Reveal the supporting message.
+4. Reveal the action buttons.
+Use CSS animation or a lightweight animation library such as Framer Motion.
+
+Do not allow the text animation to delay the page loading.
+
+6. Homepage section layout
+After the reflective slideshow, the homepage should follow this order.
+Homepage sequence
+1. Reflective slideshow hero
+2. Welcome from the church
+3. About GVCC
+4. Our spiritual mission and vision
+5. Leadership introduction
+6. Ministries and fellowships
+7. Upcoming events
+8. Latest church updates
+9. Recent sermons
+10. Photo gallery
+11. Prayer request section
+12. Visitor invitation
+13. Contact and location
+14. Footer
+
+
+7. Welcome section
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+9
+
+
+
+
+
+
+
+
+
+
+
+This section should feel personal rather than corporate.
+Layout
+Desktop:
+- Left: welcome message.
+- Right: church photograph or leadership image.
+- Optional scripture quote.
+Mobile:
+- Image first or after the heading.
+- Content stacked.
+- Readable typography.
+- Full-width CTA.
+Content
+Heading: Welcome to Gospel Vision Christian Centre
+
+Description:
+We welcome you to Gospel Vision Christian Centre, a community gathered in faith and united by the desire to seek God, grow spiritually, worship together and share the love of Christ.
+
+This wording should be editable.
+Buttons
+- Discover GVCC
+- Meet Our Leadership
+- Plan Your Visit
+
+8. About the church
+The About section must contain separate content blocks rather than one long paragraph.
+8.1 Church profile
+Display:
+- Church name.
+- Location.
+- Leadership.
+- Church introduction.
+- Church history, when provided.
+- Church activities, when confirmed.
+8.2 Mission
+An editable mission statement.
+
+The church administrator must be able to insert the official mission statement without needing a developer.
+8.3 Vision
+An editable vision statement.
+8.4 Core values
+The values section should be dynamic.
+
+The church can add:
+- Value title.
+- Description.
+- Icon.
+- Display order.
+Do not hardcode unconfirmed values into the official church profile.
+
+9. Leadership page
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+8
+
+
+
+
+
+
+
+
+
+
+
+The leadership section should introduce the church leadership.
+Verified leadership
+Bishop Joseph Ondari Gichana
+
+The PDF identifies Bishop Joseph Ondari Gichana as the church leader.
+CHURCH.pdf
+Profile card fields
+Each leader profile should contain:
+- Photograph.
+- Full name.
+- Official title.
+- Ministry position.
+- Biography.
+- Areas of ministry.
+- Optional email.
+- Optional phone.
+- Social links, if verified.
+- Display order.
+- Active/inactive status.
+Admin functions
+Administrators should be able to:
+- Add leaders.
+- Edit profiles.
+- Upload photographs.
+- Rearrange leaders.
+- Hide profiles.
+- Publish changes.
+
+10. Ministries and fellowships
+The website must have a proper ministry and fellowship system.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+14
+
+
+
+
+
+
+
+
+
+
+
+Each ministry or fellowship should have its own profile page.
+Fellowship information fields
+- Fellowship name.
+- Description.
+- Fellowship leader.
+- Contact information.
+- Meeting schedule.
+- Meeting venue.
+- Fellowship photograph.
+- Registration link.
+- Status.
+- Membership count.
+- Activities.
+- Upcoming events.
+Proposed fellowship categories
+These may be created as initial categories, but administrators must confirm which are actual GVCC fellowships before they are publicly presented.
+- Women’s Fellowship.
+- Men’s Fellowship.
+- Youth Fellowship.
+- Prayer Fellowship.
+- Children’s Ministry.
+- Worship and Music Ministry.
+- Evangelism.
+- Bible Study.
+Fellowship registration flow
+Member fellowship joining journey
+Visitor or Member opens fellowship page
+
+Selects Join Fellowship
+
+Completes registration form
+
+Submission is stored in database
+
+Fellowship leader receives notification
+
+Member is contacted for follow-up
+
+
+
+Fellowship form
+Fields:
+Field	Requirement
+Full name	Required
+Phone number	Required
+Email	Optional
+Fellowship	Required
+Member or visitor	Required
+Preferred communication	Optional
+Availability	Optional
+Prayer/support request	Optional
+Consent to follow-up	Required
+
+After submitting:
+- Show confirmation.
+- Generate a reference number.
+- Save the submission.
+- Notify authorized administrators.
+- Allow an admin to assign the request to a fellowship leader.
+- Track follow-up status.
+
+11. Events and church calendar
+The events section must allow the church to publish upcoming activities and maintain a history of previous events.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+12
+
+
+
+
+
+
+
+
+
+
+
+Event types
+The system should support:
+- Church services.
+- Conferences.
+- Prayer meetings.
+- Bible study.
+- Youth activities.
+- Fellowship gatherings.
+- Evangelism activities.
+- Special celebrations.
+- Church anniversaries.
+- Community outreach.
+These are event categories, not assumed existing GVCC events.
+Event card design
+Each event card must display:
+- Event image.
+- Event title.
+- Event date.
+- Start time.
+- End time, if applicable.
+- Location.
+- Short description.
+- Registration status.
+- Registration link.
+- View details button.
+Event detail page
+Every event should have its own URL, for example:
+
+/events/church-conference-2027
+
+The page should include:
+- Full poster.
+- Event description.
+- Date and time.
+- Location.
+- Directions.
+- Registration form.
+- Contact information.
+- Share button.
+- Add-to-calendar functionality.
+Event administration
+Admins must be able to:
+- Create events.
+- Edit events.
+- Publish or unpublish events.
+- Upload posters.
+- Mark events as completed.
+- View registrations.
+- Export attendees.
+- Set registration limits.
+- Close registration.
+
+12. News and church updates
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Create a news and announcements section for keeping the congregation informed.
+Content types
+- Church announcements.
+- Weekly messages.
+- Ministry news.
+- Testimonies.
+- Event announcements.
+- Community updates.
+- Leadership notices.
+- Church activity reports.
+Update card
+Each update should contain:
+- Cover image.
+- Headline.
+- Publication date.
+- Category.
+- Short preview.
+- Author, if applicable.
+- Read more.
+Full article page
+The full article page should support:
+- Rich text.
+- Images.
+- Embedded videos.
+- Links.
+- Scripture references.
+- Downloadable attachments.
+- Social sharing.
+Admin editor
+Use a simple editor with:
+- Bold.
+- Italics.
+- Headings.
+- Paragraphs.
+- Lists.
+- Image insertion.
+- Link insertion.
+- Video embedding.
+Administrators should not need coding skills to publish updates.
+
+13. Sermons and spiritual media
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+12
+
+
+
+
+
+
+
+
+
+
+
+The website should include a media library for church teachings, sermons, worship and recorded activities.
+Sermon categories
+- Sunday messages.
+- Bible teaching.
+- Special sermons.
+- Conferences.
+- Worship sessions.
+- Testimonies.
+Sermon data
+Every sermon should have:
+- Title.
+- Speaker.
+- Date preached.
+- Scripture reference.
+- Description.
+- Thumbnail.
+- Video URL.
+- Audio URL.
+- Duration.
+- Category.
+- Featured status.
+Media player
+The website should support:
+- YouTube embeds.
+- Facebook video links, where embedding is permitted.
+- Uploaded video where hosting capacity allows.
+- Audio sermons.
+- Play and pause.
+- Volume control.
+- Full-screen mode.
+- Responsive playback.
+Do not store large video files directly in the main database. Store video links or use dedicated media hosting.
+
+14. Gallery — all photographs from the PDF
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+14
+
+
+
+
+
+
+
+
+
+
+
+This section must use the actual photographs extracted from the provided CHURCH.pdf.
+
+The gallery should not be a single static image grid. It should be an interactive media experience.
+Gallery requirements
+- Import all photographs from the PDF.
+- Preserve originals.
+- Generate optimized web versions.
+- Display thumbnails.
+- Use responsive grid layouts.
+- Categorize photographs where possible.
+- Allow visitors to open images in a lightbox.
+- Support previous/next navigation.
+- Allow image zoom.
+- Show captions where available.
+- Enable slideshow mode.
+- Provide lazy loading.
+- Preserve image quality.
+Gallery layout
+Desktop:
+- Masonry or staggered grid.
+- Multiple image sizes.
+- Spacious design.
+- Rounded edges.
+- Subtle hover effects.
+Mobile:
+- Two-column grid where appropriate.
+- Optimized image loading.
+- Touch navigation.
+- Full-screen lightbox.
+Photo categories
+Categories should be created based on what the actual photographs represent, for example:
+- Church services.
+- Worship.
+- Preaching.
+- Congregation.
+- Fellowship.
+- Church activities.
+Images must only be categorized where the content supports the categorization.
+Lightbox functionality
+When a user clicks an image:
+1. Open the image in a modal.
+2. Darken the background.
+3. Display the full image.
+4. Add previous and next buttons.
+5. Allow closing with Escape.
+6. Allow closing by clicking outside the image.
+7. Support swipe navigation.
+8. Display image position, such as 7 of 67.
+Admin gallery
+The administrator should be able to:
+- Upload photos.
+- Delete photos.
+- Edit captions.
+- Assign categories.
+- Select featured images.
+- Rearrange image order.
+- Hide photographs.
+- Bulk-upload multiple photographs.
+
+15. Prayer request system
+This is one of the most important interactive features.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+9
+
+
+
+
+
+
+
+
+
+
+
+Create a dedicated prayer request page with a spiritual, compassionate interface.
+Prayer request page
+Heading:
+We Would Love to Pray With You
+
+Suggested message:
+Whatever you are going through, you do not have to carry it alone. Share your prayer request with us, and our prayer team will stand with you in prayer.
+
+This is proposed copy, subject to church approval.
+Prayer request form
+Field	Type	Requirement
+Name	Text	Optional
+Phone	Telephone	Optional
+Email	Email	Optional
+Prayer category	Dropdown	Required
+Prayer request	Text area	Required
+Request privacy	Dropdown	Required
+Follow-up requested	Checkbox	Optional
+Consent	Checkbox	Required
+
+Prayer categories
+- Personal prayer.
+- Family.
+- Health.
+- Spiritual growth.
+- Employment.
+- Financial needs.
+- Marriage.
+- Children.
+- Thanksgiving.
+- Other.
+These are categories for organizing submissions, not promises of counseling or professional care.
+Privacy options
+The user should be able to select:
+- Confidential: Only authorized prayer administrators can access the request.
+- Prayer team: Request may be shared with the designated prayer team.
+- Public testimony: Only if the user explicitly chooses to share it publicly.
+Prayer requests must never be publicly displayed automatically.
+Submission workflow
+Prayer request workflow
+Member submits prayer request
+
+System saves securely and generates a reference ID
+
+Authorized administrator is notified
+
+Request is assigned to a prayer team member
+
+Prayer follow-up is recorded
+
+Request is closed or retained according to church policy
+
+
+
+Prayer request status
+- New.
+- Received.
+- Assigned.
+- Praying.
+- Follow-up needed.
+- Answered.
+- Closed.
+The administrator should be able to assign prayer requests, record follow-up, and restrict access.
+
+16. Membership and visitor registration
+The website must distinguish between a person visiting the church for the first time and someone registering as an ongoing church member.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+13
+
+
+
+
+
+
+
+
+
+
+
+A. Visitor registration
+Purpose: capture details of people who are interested in visiting or connecting with GVCC.
+Fields
+- Full name.
+- Phone number.
+- Email.
+- Area of residence.
+- First-time visitor.
+- Preferred visit date.
+- Number of accompanying people.
+- How they heard about GVCC.
+- Request for assistance.
+- Consent to contact.
+Visitor follow-up
+The system should:
+1. Save the visitor record.
+2. Generate a reference number.
+3. Notify the church administrator.
+4. Assign a follow-up person.
+5. Record the date contacted.
+6. Record whether the person attended.
+7. Allow a second follow-up.
+8. Mark the visitor as connected or pending.
+
+B. Member registration
+Membership registration should capture more comprehensive information, but the system should not request unnecessary personal details.
+Recommended fields
+Section	Fields
+Personal details	Full name, date of birth if necessary, gender if voluntarily required
+Contact	Phone, email
+Location	Town/area of residence
+Membership	New member, existing member, transfer
+Fellowship	Preferred fellowship
+Ministry	Interested ministry
+Spiritual connection	Optional testimony or short introduction
+Communication	Preferred contact method
+Consent	Privacy and communication consent
+
+Membership status
+- New registration.
+- Pending verification.
+- Contacted.
+- Orientation.
+- Active member.
+- Inactive.
+- Transferred.
+- Archived.
+Member record
+An administrator should be able to view a member's:
+- Member ID.
+- Full name.
+- Phone.
+- Email.
+- Registration date.
+- Membership status.
+- Fellowship.
+- Ministry.
+- Follow-up history.
+- Notes, restricted to authorized staff.
+Member ID generation
+Generate unique IDs automatically, for example:
+
+GVCC-2027-0001
+
+The year and sequence should be automatically generated by the system, not typed manually.
+
+17. Contact page and visiting the church
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+8
+
+
+
+
+
+
+
+
+
+
+
+The contact page must be straightforward and usable even by someone who has never visited the church.
+Verified contact information
+Gospel Vision Christian Centre
+Ogembo, Kenya
+
+0727 543 663
+
+Bishop Joseph Ondari Gichana
+
+
+CHURCH.pdf
+Contact functionality
+- Click-to-call.
+- WhatsApp contact.
+- Contact form.
+- Location map.
+- Directions.
+- Church location.
+- Service schedule once officially confirmed.
+WhatsApp button
+Use a WhatsApp link that opens a conversation with the church's verified contact number.
+
+The message should be prefilled, for example:
+Hello Gospel Vision Christian Centre. I would like to know more about the church and upcoming services.
+
+Location map
+Embed a map identifying Ogembo and the church location.
+
+The exact church coordinates or street location must be confirmed before placing a precise pin. Do not invent a building location.
+
+18. Footer design
+The footer should appear on all public pages.
+GOSPEL VISION CHRISTIAN CENTRE
+A place of faith, hope, worship and fellowship.
+
+QUICK LINKS
+
+About Us
+
+Ministries
+
+Events
+
+Gallery
+
+CONNECT
+
+Prayer Request
+
+Join Us
+
+Contact
+
+
+
+Ogembo, Kenya
+
+0727 543 663
+© Gospel Vision Christian Centre. All rights reserved.
+The footer must be dynamic and editable in the dashboard.
+
+19. Administration dashboard — complete system
+The administration dashboard is the internal control center of the entire website.
+
+The public website and admin panel must use the same database. When an administrator publishes content, it should automatically appear on the website.
+19.1 Dashboard home
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+11
+
+
+
+
+
+
+
+
+
+
+
+The dashboard should display an overview of church activity.
+Summary cards
+Members
+Total registered members
+
+Prayer Requests
+Pending prayer requests
+
+Events
+Upcoming activities
+
+Visitors
+New visitor registrations
+
+
+The values must come from actual database records, not static numbers.
+Additional dashboard widgets
+- Recent member registrations.
+- Recent prayer requests.
+- New visitor list.
+- Upcoming events.
+- Recently published announcements.
+- Fellowship membership counts.
+- Pending follow-ups.
+- Activity log.
+- Quick action buttons.
+Quick actions
+- Add Member.
+- Publish Update.
+- Create Event.
+- Upload Photos.
+- Add Sermon.
+- View Prayer Requests.
+- View Visitors.
+
+20. Admin sidebar structure
+The sidebar should be clear, organized and expandable.
+GVCC ADMIN
+- Dashboard
+- Members
+- Visitors
+- Fellowships
+- Prayer Requests
+- Events
+- News & Updates
+- Gallery
+- Sermons & Media
+- Ministries
+- Leadership
+- Communication
+- Reports
+- Admin Users
+- Website Settings
+
+
+21. Member management module
+The member management module must be a functional database system, not just a form.
+Member list
+Provide:
+- Search by name.
+- Search by phone.
+- Search by member ID.
+- Filter by status.
+- Filter by fellowship.
+- Filter by ministry.
+- Filter by registration date.
+- Sort.
+- Pagination.
+- Export.
+Member profile page
+Every member should have a dedicated record.
+Member Profile
+Example layout — no real member data
+
+Member Name
+GVCC-2027-0001Active
+
+
+
+Personal Information
+Phone · Email · Location · Registration date
+Church Connection
+Fellowship · Ministry · Membership status
+Follow-up
+Contact history · Notes · Assigned leader
+
+Member actions
+- View.
+- Edit.
+- Update fellowship.
+- Assign ministry.
+- Record follow-up.
+- Change status.
+- Add notes.
+- Archive.
+- Export.
+Bulk operations
+- Import members from CSV.
+- Export filtered records.
+- Bulk assign fellowships.
+- Bulk change status.
+- Print selected records.
+Sensitive information should not be accessible to every admin account.
+
+22. Visitor management module
+This module should be separate from member management because visitors are not necessarily members.
+Visitor dashboard
+Display:
+- New visitors.
+- Visitors awaiting contact.
+- Visitors contacted.
+- Visitors who attended.
+- Visitors who returned.
+- Visitors who joined.
+- Visitors requiring follow-up.
+Visitor follow-up record
+Each visitor should have:
+- Assigned follow-up staff.
+- Follow-up date.
+- Contact method.
+- Follow-up result.
+- Next action.
+- Notes.
+Conversion workflow
+A visitor may be moved to member registration only when they decide to join. The system must not automatically convert every visitor to a member.
+
+23. Fellowship management module
+The fellowship administrator should be able to manage all fellowship groups from one location.
+Fellowship dashboard
+- Fellowship name.
+- Fellowship leader.
+- Total members.
+- New registrations.
+- Pending requests.
+- Activities.
+- Upcoming meetings.
+Fellowship page
+Each fellowship must have:
+- Description.
+- Leader.
+- Contact details.
+- Members.
+- Meetings.
+- Events.
+- Photo gallery.
+- Announcements.
+Fellowship leader access
+An authorized fellowship leader should be able to access only their assigned fellowship records, where permission has been granted.
+
+They should not be able to see all church members' confidential information.
+
+24. Prayer request administration
+This is a confidential module.
+Prayer request table
+Column	Purpose
+Reference ID	Unique request
+Date received	Submission time
+Requester	Name or anonymous
+Category	Prayer type
+Assigned person	Prayer team member
+Status	Current workflow
+Follow-up	Required or not
+Last updated	Tracking
+
+Admin actions
+- View request.
+- Assign prayer team member.
+- Mark received.
+- Mark as praying.
+- Record follow-up.
+- Mark answered.
+- Close.
+- Archive according to policy.
+Access permissions
+Only users with explicit prayer request permissions should be able to read the full request.
+
+A dashboard may display aggregate numbers without displaying the private prayer request text.
+
+25. News and announcements management
+Create a dedicated CMS-style publishing system.
+Admin article editor
+Fields:
+- Title.
+- Slug.
+- Summary.
+- Article content.
+- Featured image.
+- Author.
+- Category.
+- Publish date.
+- SEO title.
+- SEO description.
+- Status.
+Article status
+- Draft.
+- Scheduled.
+- Published.
+- Archived.
+Admin actions
+- Create.
+- Edit.
+- Preview.
+- Schedule.
+- Publish.
+- Unpublish.
+- Delete.
+Publishing behavior
+When an article is published:
+1. It appears in the public news list.
+2. It receives its own URL.
+3. It becomes searchable.
+4. It may appear in the homepage latest updates section.
+5. It may be shared through a social share link.
+
+26. Event management
+The events admin module should provide a calendar and list view.
+Calendar views
+- Month.
+- Week.
+- List.
+Event creation
+- Event name.
+- Category.
+- Start date.
+- Start time.
+- End date.
+- End time.
+- Location.
+- Description.
+- Poster.
+- Registration requirements.
+- Maximum attendees.
+- Registration deadline.
+- Contact person.
+- Status.
+Event status
+- Draft.
+- Upcoming.
+- Registration open.
+- Registration closed.
+- Ongoing.
+- Completed.
+- Cancelled.
+Event reports
+- Total registrations.
+- Attendance.
+- Non-attendance.
+- Registration source.
+- Fellowship participation.
+
+27. Media management
+The admin panel must include a central media library.
+Media library features
+- Upload images.
+- Upload thumbnails.
+- Upload documents.
+- Upload audio.
+- Store video links.
+- Search media.
+- Sort by date.
+- Filter by category.
+- Edit captions.
+- Assign media to an event.
+- Assign media to a sermon.
+- Assign media to a gallery.
+- Select homepage images.
+Homepage slideshow manager
+This should be a separate interface.
+
+The admin should be able to:
+- Select images from the media library.
+- Choose slide order.
+- Add heading text.
+- Add supporting text.
+- Add scripture reference.
+- Add button label.
+- Add button destination.
+- Set transition.
+- Set display duration.
+- Enable or disable a slide.
+- Preview slideshow.
+- Publish.
+This ensures that the homepage reflection slideshow is controlled by church staff.
+
+28. Website settings module
+This module manages all site-wide information.
+Church identity
+- Church name.
+- Short name.
+- Logo.
+- Favicon.
+- Church description.
+- Mission.
+- Vision.
+- Core values.
+Contact settings
+- Phone.
+- WhatsApp.
+- Email.
+- Physical location.
+- Map location.
+- Contact form destination.
+Social media
+- Facebook.
+- YouTube.
+- Instagram.
+- TikTok.
+- Other verified accounts.
+Appearance
+- Main color.
+- Secondary color.
+- Accent color.
+- Font.
+- Logo variation.
+- Footer text.
+- Announcement bar.
+SEO
+- Site title.
+- Meta description.
+- Default social sharing image.
+- Canonical domain.
+- Search engine indexing.
+- Sitemap generation.
+
+29. Database blueprint
+The application should use a proper relational database.
+
+Recommended database: PostgreSQL with Supabase
+
+This allows the application to manage members, visitors, prayer requests, events, fellowships, ministries, media and church updates in a structured way.
+29.1 Database tables
+Core database
+1. profiles
+2. members
+3. visitors
+4. fellowships
+5. fellowship_members
+6. ministries
+7. ministry_members
+8. leaders
+9. prayer_requests
+10. prayer_followups
+11. events
+12. event_registrations
+13. news_posts
+14. sermons
+15. media_assets
+16. gallery_categories
+17. gallery_images
+18. homepage_slides
+19. church_settings
+20. contact_messages
+21. admin_roles
+22. admin_permissions
+23. audit_logs
+24. followup_records
+
+29.2 Table definitions
+profiles
+Stores the identity of authenticated system users.
+Column	Type
+id	UUID, primary key
+auth_user_id	UUID, linked to authentication
+full_name	Text
+email	Text
+phone	Text
+avatar_url	Text
+account_status	Text
+created_at	Timestamp
+updated_at	Timestamp
+
+This table is intended for church staff, leaders and authorized platform users.
+
+members
+Column	Type
+id	UUID
+member_number	Unique text
+full_name	Text
+phone	Text
+email	Text
+location	Text
+date_of_birth	Date, optional
+registration_date	Date
+membership_status	Text
+fellowship_id	UUID, optional
+notes	Text, restricted
+created_at	Timestamp
+updated_at	Timestamp
+
+
+visitors
+Column	Type
+id	UUID
+visitor_number	Unique text
+full_name	Text
+phone	Text
+email	Text
+residence	Text
+first_visit_date	Date
+visit_source	Text
+followup_status	Text
+assigned_staff_id	UUID, optional
+created_at	Timestamp
+
+
+fellowships
+Column	Type
+id	UUID
+name	Text
+slug	Text
+description	Text
+leader_id	UUID, optional
+contact_phone	Text
+meeting_day	Text
+meeting_time	Text
+meeting_location	Text
+image_url	Text
+status	Text
+created_at	Timestamp
+
+
+fellowship_members
+This table links members to fellowships.
+Column	Type
+id	UUID
+member_id	UUID
+fellowship_id	UUID
+joined_at	Timestamp
+status	Text
+assigned_role	Text
+
+This structure allows members to participate in more than one fellowship if the church allows it.
+
+ministries
+Column	Type
+id	UUID
+name	Text
+slug	Text
+description	Text
+leader_id	UUID
+image_url	Text
+contact_phone	Text
+status	Text
+created_at	Timestamp
+
+
+prayer_requests
+Column	Type
+id	UUID
+reference_number	Text
+requester_name	Text, optional
+phone	Text, optional
+email	Text, optional
+category	Text
+request_content	Text
+privacy_level	Text
+assigned_user_id	UUID, optional
+followup_requested	Boolean
+status	Text
+created_at	Timestamp
+updated_at	Timestamp
+
+
+prayer_followups
+Column	Type
+id	UUID
+prayer_request_id	UUID
+staff_user_id	UUID
+followup_date	Timestamp
+followup_method	Text
+notes	Text
+next_action	Text
+created_at	Timestamp
+
+Access must be restricted because this table may contain confidential information.
+
+events
+Column	Type
+id	UUID
+title	Text
+slug	Text
+description	Text
+event_category	Text
+start_datetime	Timestamp
+end_datetime	Timestamp
+location	Text
+poster_url	Text
+registration_open	Boolean
+registration_deadline	Timestamp
+capacity	Integer, optional
+status	Text
+created_by	UUID
+created_at	Timestamp
+
+
+event_registrations
+Column	Type
+id	UUID
+event_id	UUID
+full_name	Text
+phone	Text
+email	Text
+member_id	UUID, optional
+attendance_status	Text
+registration_date	Timestamp
+
+
+news_posts
+Column	Type
+id	UUID
+title	Text
+slug	Text
+summary	Text
+body	Rich text / HTML
+featured_image	Text
+category	Text
+author_id	UUID
+status	Text
+published_at	Timestamp
+created_at	Timestamp
+updated_at	Timestamp
+
+
+sermons
+Column	Type
+id	UUID
+title	Text
+speaker	Text
+scripture_reference	Text
+description	Text
+video_url	Text
+audio_url	Text
+thumbnail_url	Text
+sermon_date	Date
+duration	Text
+status	Text
+created_at	Timestamp
+
+
+media_assets
+Column	Type
+id	UUID
+filename	Text
+storage_path	Text
+media_type	Text
+file_size	Integer
+caption	Text
+alt_text	Text
+category	Text
+uploaded_by	UUID
+uploaded_at	Timestamp
+
+
+homepage_slides
+Column	Type
+id	UUID
+media_asset_id	UUID
+heading	Text
+subtitle	Text
+scripture_reference	Text, optional
+button_label	Text
+button_url	Text
+display_order	Integer
+duration_seconds	Integer
+active	Boolean
+created_at	Timestamp
+
+
+church_settings
+Column	Type
+id	UUID
+setting_key	Text
+setting_value	JSON
+updated_by	UUID
+updated_at	Timestamp
+
+This can store website configuration, church identity, theme settings and other site-wide values.
+
+30. Database relationship map
+The following relationships should be implemented.
+#chatgpt-mermaid-_r_5kb_{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;fill:rgb(13, 13, 13);}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#chatgpt-mermaid-_r_5kb_ .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-_r_5kb_ .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-_r_5kb_ .error-icon{fill:rgb(243, 243, 243);}#chatgpt-mermaid-_r_5kb_ .error-text{fill:rgb(13, 13, 13);stroke:rgb(13, 13, 13);}#chatgpt-mermaid-_r_5kb_ .edge-thickness-normal{stroke-width:1px;}#chatgpt-mermaid-_r_5kb_ .edge-thickness-thick{stroke-width:3.5px;}#chatgpt-mermaid-_r_5kb_ .edge-pattern-solid{stroke-dasharray:0;}#chatgpt-mermaid-_r_5kb_ .edge-thickness-invisible{stroke-width:0;fill:none;}#chatgpt-mermaid-_r_5kb_ .edge-pattern-dashed{stroke-dasharray:3;}#chatgpt-mermaid-_r_5kb_ .edge-pattern-dotted{stroke-dasharray:2;}#chatgpt-mermaid-_r_5kb_ .marker{fill:rgb(143, 143, 143);stroke:rgb(143, 143, 143);}#chatgpt-mermaid-_r_5kb_ .marker.cross{stroke:rgb(143, 143, 143);}#chatgpt-mermaid-_r_5kb_ svg{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;}#chatgpt-mermaid-_r_5kb_ p{margin:0;}#chatgpt-mermaid-_r_5kb_ .entityBox{fill:rgb(222, 234, 251);stroke:rgb(83, 154, 248);}#chatgpt-mermaid-_r_5kb_ .relationshipLabelBox{fill:rgb(243, 243, 243);opacity:0.7;background-color:rgb(243, 243, 243);}#chatgpt-mermaid-_r_5kb_ .relationshipLabelBox rect{opacity:0.5;}#chatgpt-mermaid-_r_5kb_ .labelBkg{background-color:rgba(243, 243, 243, 0.5);}#chatgpt-mermaid-_r_5kb_ .edgeLabel{background-color:rgb(252, 252, 252);}#chatgpt-mermaid-_r_5kb_ .edgeLabel .label rect{fill:rgb(252, 252, 252);}#chatgpt-mermaid-_r_5kb_ .edgeLabel .label text{fill:rgb(13, 13, 13);}#chatgpt-mermaid-_r_5kb_ .edgeLabel .label{fill:rgb(83, 154, 248);font-size:14px;}#chatgpt-mermaid-_r_5kb_ .label{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";color:rgb(13, 13, 13);}#chatgpt-mermaid-_r_5kb_ .edge-pattern-dashed{stroke-dasharray:8,8;}#chatgpt-mermaid-_r_5kb_ .node rect,#chatgpt-mermaid-_r_5kb_ .node circle,#chatgpt-mermaid-_r_5kb_ .node ellipse,#chatgpt-mermaid-_r_5kb_ .node polygon{fill:rgb(222, 234, 251);stroke:rgb(83, 154, 248);stroke-width:1px;}#chatgpt-mermaid-_r_5kb_ .relationshipLine{stroke:rgb(143, 143, 143);stroke-width:1px;fill:none;}#chatgpt-mermaid-_r_5kb_ .marker{fill:none!important;stroke:rgb(143, 143, 143)!important;stroke-width:1;}#chatgpt-mermaid-_r_5kb_ [data-look=neo].labelBkg{background-color:rgba(243, 243, 243, 0.5);}#chatgpt-mermaid-_r_5kb_ .node .neo-node{stroke:rgb(83, 154, 248);}#chatgpt-mermaid-_r_5kb_ [data-look="neo"].node rect,#chatgpt-mermaid-_r_5kb_ [data-look="neo"].cluster rect,#chatgpt-mermaid-_r_5kb_ [data-look="neo"].node polygon{stroke:url(#chatgpt-mermaid-_r_5kb_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-_r_5kb_ [data-look="neo"].swimlane.cluster rect{filter:none;}#chatgpt-mermaid-_r_5kb_ [data-look="neo"].node path{stroke:url(#chatgpt-mermaid-_r_5kb_-gradient);stroke-width:1px;}#chatgpt-mermaid-_r_5kb_ [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-_r_5kb_ [data-look="neo"].node .neo-line path{stroke:rgb(83, 154, 248);filter:none;}#chatgpt-mermaid-_r_5kb_ [data-look="neo"].node circle{stroke:url(#chatgpt-mermaid-_r_5kb_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-_r_5kb_ [data-look="neo"].node circle .state-start{fill:#000000;}#chatgpt-mermaid-_r_5kb_ [data-look="neo"].icon-shape .icon{fill:url(#chatgpt-mermaid-_r_5kb_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-_r_5kb_ [data-look="neo"].icon-shape .icon-neo path{stroke:url(#chatgpt-mermaid-_r_5kb_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-_r_5kb_ :root{--mermaid-font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";}PROFILESMEMBERSFELLOWSHIP_MEMBERSFELLOWSHIPSMINISTRY_MEMBERSMINISTRIESPRAYER_REQUESTSPRAYER_FOLLOWUPSEVENTSEVENT_REGISTRATIONSNEWS_POSTSMEDIA_ASSETSGALLERY_IMAGESHOMEPAGE_SLIDESmanagesjoinscontainsparticipatescontainsassignedtrackedreceivespublishessuppliessupplies
+
+
+
+
+
+The database should use foreign keys, indexes, unique constraints and appropriate deletion rules.
+
+For example:
+- A member number must be unique.
+- An event slug must be unique.
+- An email should not be assumed unique if the church permits family members to share email addresses.
+- A prayer request must remain associated with its follow-up history.
+- Removing a fellowship must not automatically delete member records.
+- Deleting media must not leave broken references across the website.
+
+31. User roles and permissions
+Do not create one admin account where everyone has unrestricted access.
+
+The platform should implement role-based access control (RBAC).
+Role 1 — Super Administrator
+Full system control.
+- Manage admin accounts.
+- Manage permissions.
+- Manage all church records.
+- Manage website configuration.
+- Access system audit logs.
+- Manage database exports.
+
+Role 2 — Church Administrator
+Daily church administration.
+- Manage members.
+- Manage visitors.
+- Manage fellowships.
+- Manage events.
+- Manage updates.
+- Manage approved gallery content.
+
+Role 3 — Pastor / Church Leadership
+Leadership oversight and pastoral access.
+- View permitted member information.
+- Review prayer requests according to assigned permissions.
+- View visitor follow-up.
+- View ministry reports.
+- Manage selected church updates or sermons.
+
+Role 4 — Fellowship Leader
+Manage an assigned fellowship.
+- View their assigned fellowship.
+- View authorized members.
+- Review joining requests.
+- Update fellowship activities.
+- Manage fellowship announcements.
+
+Role 5 — Media Administrator
+Manage public media and content.
+- Upload photographs.
+- Manage gallery.
+- Manage sermons.
+- Manage slideshow.
+- Publish approved media.
+
+Role 6 — Prayer Team
+Access only assigned prayer requests.
+- View assigned requests.
+- Update prayer status.
+- Record follow-up.
+- Mark requests as completed.
+
+Permissions should be configurable
+The administrator should be able to assign permissions such as:
+- members.view
+- members.create
+- members.edit
+- members.archive
+- visitors.view
+- visitors.followup
+- prayer.view
+- prayer.assign
+- prayer.update
+- events.create
+- events.publish
+- news.create
+- news.publish
+- gallery.upload
+- gallery.delete
+- settings.manage
+- admins.manage
+Every permission must be checked on the server side. Hiding a button in the frontend is not security.
+
+32. Recommended technology stack
+The website should be developed using a modern stack that is scalable, secure, relatively easy to maintain and capable of supporting a church management system later.
+
+
+
+
+
+
+
+
+
+
+Frontend
+
+Next.js + TypeScript
+Responsive pages, routing, server rendering, interactive components and SEO.
+
+
+
+
+
+
+
+
+
+
+
+Backend
+
+Supabase
+Database, authentication, file storage and secure server functions.
+
+
+
+
+
+
+
+
+
+
+
+Design
+
+Tailwind CSS
+Responsive design, design tokens and consistent styling.
+
+
+
+
+
+
+
+
+
+
+
+Deployment
+
+Vercel
+Website hosting, deployment, previews and production builds.
+
+
+Technical components
+Technology	Purpose
+Next.js	Website and application framework
+TypeScript	Strongly typed application development
+Tailwind CSS	Styling and responsive layouts
+Supabase PostgreSQL	Main database
+Supabase Auth	Administrator authentication
+Supabase Storage	Church images, gallery, posters
+React Hook Form	Form handling
+Zod	Form and data validation
+Framer Motion	Reflective slideshow and animation
+Lucide Icons	UI icon library
+Vercel	Website hosting
+Resend or similar	Email notifications
+WhatsApp integration	Church communication, if configured
+
+These are recommendations. The developer may choose equivalent technologies, but the architecture must preserve the same functionality, security and performance.
+
+33. Application folder structure
+The project should be organized cleanly from the beginning.
+gvcc-church-platform/
+│
+├── app/
+│   ├── page.tsx
+│   ├── about/
+│   ├── leadership/
+│   ├── ministries/
+│   ├── fellowships/
+│   ├── events/
+│   ├── news/
+│   ├── sermons/
+│   ├── gallery/
+│   ├── prayer/
+│   ├── join/
+│   ├── contact/
+│   │
+│   ├── admin/
+│   │   ├── login/
+│   │   ├── dashboard/
+│   │   ├── members/
+│   │   ├── visitors/
+│   │   ├── fellowships/
+│   │   ├── ministries/
+│   │   ├── prayers/
+│   │   ├── events/
+│   │   ├── news/
+│   │   ├── gallery/
+│   │   ├── sermons/
+│   │   ├── media/
+│   │   ├── leadership/
+│   │   ├── reports/
+│   │   ├── users/
+│   │   └── settings/
+│   │
+│   └── api/
+│       ├── members/
+│       ├── visitors/
+│       ├── prayers/
+│       ├── fellowships/
+│       ├── events/
+│       └── contact/
+│
+├── components/
+│   ├── layout/
+│   ├── navigation/
+│   ├── hero/
+│   ├── slideshow/
+│   ├── gallery/
+│   ├── forms/
+│   ├── cards/
+│   ├── admin/
+│   └── ui/
+│
+├── lib/
+│   ├── supabase/
+│   ├── auth/
+│   ├── permissions/
+│   ├── validation/
+│   ├── notifications/
+│   └── utils/
+│
+├── public/
+│   ├── images/
+│   │   ├── church/
+│   │   ├── gallery/
+│   │   ├── leadership/
+│   │   └── events/
+│   ├── logo/
+│   └── icons/
+│
+├── types/
+├── styles/
+├── supabase/
+│   ├── migrations/
+│   └

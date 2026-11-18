@@ -1,0 +1,231 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // -------------------------------------------------------------------------
+    // Pillar 0: Global Safety Net (Default Deny)
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Pillar 3: Hardened Global Primitives
+    // -------------------------------------------------------------------------
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'kingboysammy5@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // Pillar 2: Standalone Validation Blueprints
+    // -------------------------------------------------------------------------
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'bestScore', 'gamesPlayed', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'email', 'bestScore', 'gamesPlayed', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.uid == userId
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+        && data.bestScore is int && data.bestScore >= 0 && data.bestScore <= 1000000
+        && data.gamesPlayed is int && data.gamesPlayed >= 0 && data.gamesPlayed <= 1000000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidBookmark(data, userId) {
+      return data.keys().hasAll(['uid', 'query', 'answer', 'sourceTitles', 'sourceUrls', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'query', 'answer', 'sourceTitles', 'sourceUrls', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.uid == userId
+        && data.query is string && data.query.size() >= 2 && data.query.size() <= 500
+        && data.answer is string && data.answer.size() >= 1 && data.answer.size() <= 12000
+        && data.sourceTitles is list && data.sourceTitles.size() <= 10
+        && (data.sourceTitles.size() == 0 || (data.sourceTitles[0] is string && data.sourceTitles[0].size() <= 200))
+        && data.sourceUrls is list && data.sourceUrls.size() <= 10
+        && (data.sourceUrls.size() == 0 || (data.sourceUrls[0] is string && data.sourceUrls[0].size() <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidGameRun(data, userId) {
+      return data.keys().hasAll(['uid', 'score', 'wave', 'lambsSaved', 'durationSeconds', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'score', 'wave', 'lambsSaved', 'durationSeconds', 'createdAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.uid == userId
+        && data.score is int && data.score >= 0 && data.score <= 1000000
+        && data.wave is int && data.wave >= 1 && data.wave <= 999
+        && data.lambsSaved is int && data.lambsSaved >= 0 && data.lambsSaved <= 10000
+        && data.durationSeconds is int && data.durationSeconds >= 0 && data.durationSeconds <= 86400
+        && data.createdAt is timestamp;
+    }
+
+    function isValidLeaderboardEntry(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'bestScore', 'bestWave', 'totalLambsSaved', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'bestScore', 'bestWave', 'totalLambsSaved', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.uid == userId
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80
+        && data.bestScore is int && data.bestScore >= 0 && data.bestScore <= 1000000
+        && data.bestWave is int && data.bestWave >= 1 && data.bestWave <= 999
+        && data.totalLambsSaved is int && data.totalLambsSaved >= 0 && data.totalLambsSaved <= 100000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // -------------------------------------------------------------------------
+    // /admins/{adminUid} - Explicit role lookup documents
+    // -------------------------------------------------------------------------
+    match /admins/{adminUid} {
+      allow get: if isValidId(adminUid) && (isOwner(adminUid) || isAdmin());
+      allow list, create, update, delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // /users/{userId} - Owner-isolated PII Profile
+    // -------------------------------------------------------------------------
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(userId)
+        && (isOwner(userId) || isAdmin())
+        && isValidUserProfile(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'bestScore', 'gamesPlayed', 'updatedAt'])
+        );
+
+      allow delete: if false;
+
+      // -----------------------------------------------------------------------
+      // Master Gate Subcollection: /users/{userId}/bookmarks/{bookmarkId}
+      // -----------------------------------------------------------------------
+      match /bookmarks/{bookmarkId} {
+        function parentMatchesOwner() {
+          return exists(/databases/$(database)/documents/users/$(userId))
+            && get(/databases/$(database)/documents/users/$(userId)).data.uid == request.auth.uid;
+        }
+
+        allow get: if isValidId(userId) && isValidId(bookmarkId)
+          && ((isOwner(userId) && parentMatchesOwner()) || isAdmin());
+
+        allow list: if isVerifiedUser()
+          && resource.data.uid == request.auth.uid
+          && request.auth.uid == userId;
+
+        allow create: if isValidId(userId) && isValidId(bookmarkId)
+          && isOwner(userId)
+          && isValidBookmark(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && parentMatchesOwner();
+
+        allow update: if isValidId(userId) && isValidId(bookmarkId)
+          && ((isOwner(userId) && parentMatchesOwner()) || isAdmin())
+          && isValidBookmark(incoming(), userId)
+          && incoming().uid == existing().uid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            isAdmin() ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['query', 'answer', 'sourceTitles', 'sourceUrls', 'updatedAt'])
+          );
+
+        allow delete: if isValidId(userId) && isValidId(bookmarkId)
+          && ((isOwner(userId) && parentMatchesOwner()) || isAdmin());
+      }
+
+      // -----------------------------------------------------------------------
+      // Master Gate Subcollection: /users/{userId}/gameRuns/{runId}
+      // -----------------------------------------------------------------------
+      match /gameRuns/{runId} {
+        function parentUserMatches() {
+          return exists(/databases/$(database)/documents/users/$(userId))
+            && get(/databases/$(database)/documents/users/$(userId)).data.uid == request.auth.uid;
+        }
+
+        allow get: if isValidId(userId) && isValidId(runId)
+          && ((isOwner(userId) && parentUserMatches()) || isAdmin());
+
+        allow list: if isVerifiedUser()
+          && resource.data.uid == request.auth.uid
+          && request.auth.uid == userId;
+
+        allow create: if isValidId(userId) && isValidId(runId)
+          && isOwner(userId)
+          && isValidGameRun(incoming(), userId)
+          && incoming().createdAt == request.time
+          && parentUserMatches();
+
+        allow update, delete: if false;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // /leaderboard/{userId} - Non-PII Sanctuary Game Leaderboard
+    // -------------------------------------------------------------------------
+    match /leaderboard/{userId} {
+      allow get: if isValidId(userId);
+      allow list: if resource.data.bestScore >= 0;
+
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidLeaderboardEntry(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(userId)
+        && (isOwner(userId) || isAdmin())
+        && isValidLeaderboardEntry(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'bestScore', 'bestWave', 'totalLambsSaved', 'updatedAt'])
+            && incoming().bestScore >= existing().bestScore
+            && incoming().bestWave >= existing().bestWave
+            && incoming().totalLambsSaved >= existing().totalLambsSaved
+          )
+        );
+
+      allow delete: if isAdmin();
+    }
+  }
+}
