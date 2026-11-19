@@ -77,20 +77,38 @@ export const leaders = pgTable('leaders', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-// 5. Church Members
+// 5. Church Members (Complete Digital Membership Register)
 export const members = pgTable('members', {
   id: serial('id').primaryKey(),
   memberNumber: text('member_number').notNull().unique(),
   fullName: text('full_name').notNull(),
-  phone: text('phone').notNull(),
-  email: text('email'),
-  location: text('location'),
-  dateOfBirth: text('date_of_birth'),
   gender: text('gender'),
+  dateOfBirth: text('date_of_birth'),
+  maritalStatus: text('marital_status'),
+  nationality: text('nationality').default('Kenyan'),
+  photoUrl: text('photo_url'),
+  phone: text('phone').notNull(),
+  whatsappNumber: text('whatsapp_number'),
+  email: text('email'),
+  residentialAddress: text('residential_address'),
+  location: text('location'), // Estate / Location
+  county: text('county').default('Kisii'),
+  emergencyContactName: text('emergency_contact_name'),
+  emergencyContactPhone: text('emergency_contact_phone'),
+  acceptedChrist: boolean('accepted_christ'),
+  isBaptised: boolean('is_baptised'),
+  baptismDate: text('baptism_date'),
+  previousChurch: text('previous_church'),
+  membershipType: text('membership_type').notNull().default('New member'), // New member, Transferring member, Returning member, Visitor
+  joinDate: text('join_date'),
   registrationDate: text('registration_date').notNull(),
-  membershipType: text('membership_type').notNull().default('New member'),
-  membershipStatus: text('membership_status').notNull().default('New registration'),
+  membershipStatus: text('membership_status').notNull().default('New Member'), // New Member, Active Member, Pending Follow-up, Transferred, Inactive
+  interestedMinistries: jsonb('interested_ministries').$type<string[]>().notNull().default([]),
   fellowshipId: integer('fellowship_id').references(() => fellowships.id, { onDelete: 'set null' }),
+  preferredFellowship: text('preferred_fellowship'),
+  preferredService: text('preferred_service').default('First service'),
+  assignedPastor: text('assigned_pastor'),
+  discipleshipStatus: text('discipleship_status').default('Not started'),
   ministryId: integer('ministry_id').references(() => ministries.id, { onDelete: 'set null' }),
   preferredContactMethod: text('preferred_contact_method').default('Phone'),
   testimony: text('testimony'),
@@ -99,6 +117,21 @@ export const members = pgTable('members', {
   consent: boolean('consent').notNull().default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// 5b. Member Pastoral Follow-up Log
+export const memberFollowups = pgTable('member_followups', {
+  id: serial('id').primaryKey(),
+  memberId: integer('member_id')
+    .references(() => members.id, { onDelete: 'cascade' })
+    .notNull(),
+  staffUserId: integer('staff_user_id').references(() => users.id, { onDelete: 'set null' }),
+  staffName: text('staff_name').notNull(),
+  followupDate: timestamp('followup_date').defaultNow().notNull(),
+  followupMethod: text('followup_method').notNull().default('Phone Call'),
+  notes: text('notes').notNull(),
+  nextAction: text('next_action'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 // 6. Visitors
@@ -420,7 +453,7 @@ export const testimonies = pgTable('testimonies', {
 });
 
 // Relations
-export const membersRelations = relations(members, ({ one }) => ({
+export const membersRelations = relations(members, ({ one, many }) => ({
   fellowship: one(fellowships, {
     fields: [members.fellowshipId],
     references: [fellowships.id],
@@ -428,6 +461,14 @@ export const membersRelations = relations(members, ({ one }) => ({
   ministry: one(ministries, {
     fields: [members.ministryId],
     references: [ministries.id],
+  }),
+  followups: many(memberFollowups),
+}));
+
+export const memberFollowupsRelations = relations(memberFollowups, ({ one }) => ({
+  member: one(members, {
+    fields: [memberFollowups.memberId],
+    references: [members.id],
   }),
 }));
 

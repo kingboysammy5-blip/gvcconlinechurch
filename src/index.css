@@ -120,3 +120,34 @@
   background-color: #303030;
   opacity: 0.08;
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only-container {
+    position: static !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border-color: #cbd5e1 !important;
+  }
+  body.gvcc-printing-modal * {
+    visibility: hidden !important;
+  }
+  body.gvcc-printing-modal .gvcc-printable-area,
+  body.gvcc-printing-modal .gvcc-printable-area * {
+    visibility: visible !important;
+  }
+  body.gvcc-printing-modal .gvcc-printable-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    padding: 20px !important;
+  }
+}

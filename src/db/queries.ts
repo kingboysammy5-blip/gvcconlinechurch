@@ -15,6 +15,7 @@ import {
   homepageSlides,
   leaders,
   mediaAssets,
+  memberFollowups,
   members,
   ministries,
   newsPosts,
@@ -218,7 +219,7 @@ export async function getAdminOverviewStats() {
       db.select({ value: count() }).from(givingRecords),
       db.select({ value: count() }).from(devotionals),
       db.select({ value: count() }).from(testimonies).where(eq(testimonies.moderationStatus, 'Pending Review')),
-      db.select().from(members).orderBy(desc(members.createdAt)).limit(5),
+      db.select().from(members).orderBy(desc(members.createdAt)).limit(6),
       db.select().from(visitors).orderBy(desc(visitors.createdAt)).limit(5),
       db
         .select({
@@ -235,6 +236,95 @@ export async function getAdminOverviewStats() {
       db.select().from(auditLogs).orderBy(desc(auditLogs.createdAt)).limit(8),
     ]);
 
+    const allMembersRows = await db
+      .select({
+        id: members.id,
+        gender: members.gender,
+        dateOfBirth: members.dateOfBirth,
+        membershipType: members.membershipType,
+        membershipStatus: members.membershipStatus,
+        interestedMinistries: members.interestedMinistries,
+        registrationDate: members.registrationDate,
+        joinDate: members.joinDate,
+        createdAt: members.createdAt,
+      })
+      .from(members);
+
+    const statusNorm = (s: string) => {
+      const lower = (s || '').toLowerCase();
+      if (lower.includes('active')) return 'Active Member';
+      if (lower.includes('transfer')) return 'Transferred';
+      if (lower.includes('inactive') || lower.includes('archiv')) return 'Inactive';
+      if (lower.includes('pending') || lower.includes('follow') || lower.includes('contact') || lower.includes('orientation')) {
+        return 'Pending Follow-up';
+      }
+      return 'New Member';
+    };
+
+    const statusCounts: Record<string, number> = {
+      'New Member': 0,
+      'Active Member': 0,
+      'Pending Follow-up': 0,
+      Transferred: 0,
+      Inactive: 0,
+    };
+    const genderCounts: Record<string, number> = { Male: 0, Female: 0, Unspecified: 0 };
+    const ageCategoryCounts: Record<string, number> = {
+      'Children (<13)': 0,
+      'Teens (13-17)': 0,
+      'Youth (18-30)': 0,
+      'Young Adults (31-45)': 0,
+      'Adults (46-60)': 0,
+      'Seniors (60+)': 0,
+      Unspecified: 0,
+    };
+    const ministryCounts: Record<string, number> = {};
+    const categoryCounts: Record<string, number> = {};
+    const monthlyGrowthMap: Record<string, number> = {};
+
+    const nowYear = new Date().getFullYear();
+
+    for (const m of allMembersRows) {
+      const st = statusNorm(m.membershipStatus);
+      statusCounts[st] = (statusCounts[st] || 0) + 1;
+
+      const g = (m.gender || '').trim();
+      if (g === 'Male' || g === 'Female') genderCounts[g] += 1;
+      else genderCounts.Unspecified += 1;
+
+      if (m.dateOfBirth) {
+        const dobYear = Number(m.dateOfBirth.slice(0, 4));
+        const age = Number.isFinite(dobYear) && dobYear > 1900 && dobYear <= nowYear ? nowYear - dobYear : -1;
+        if (age < 0) ageCategoryCounts.Unspecified += 1;
+        else if (age < 13) ageCategoryCounts['Children (<13)'] += 1;
+        else if (age <= 17) ageCategoryCounts['Teens (13-17)'] += 1;
+        else if (age <= 30) ageCategoryCounts['Youth (18-30)'] += 1;
+        else if (age <= 45) ageCategoryCounts['Young Adults (31-45)'] += 1;
+        else if (age <= 60) ageCategoryCounts['Adults (46-60)'] += 1;
+        else ageCategoryCounts['Seniors (60+)'] += 1;
+      } else {
+        ageCategoryCounts.Unspecified += 1;
+      }
+
+      const mType = (m.membershipType || 'New member').trim();
+      categoryCounts[mType] = (categoryCounts[mType] || 0) + 1;
+
+      const mins = Array.isArray(m.interestedMinistries) ? m.interestedMinistries : [];
+      for (const minName of mins) {
+        if (minName) ministryCounts[minName] = (ministryCounts[minName] || 0) + 1;
+      }
+
+      const dt = (m.joinDate || m.registrationDate || '').slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(dt)) {
+        monthlyGrowthMap[dt] = (monthlyGrowthMap[dt] || 0) + 1;
+      }
+    }
+
+    const monthlyGrowth = Object.entries(monthlyGrowthMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-12)
+      .map(([month, countVal]) => ({ month, count: countVal }));
+
     return {
       counts: {
         members: Number(memberTotal[0]?.value ?? 0),
@@ -250,6 +340,15 @@ export async function getAdminOverviewStats() {
         giving: Number(givingTotal[0]?.value ?? 0),
         devotionals: Number(devotionalTotal[0]?.value ?? 0),
         pendingTestimonies: Number(pendingTestimonyTotal[0]?.value ?? 0),
+      },
+      membershipAnalytics: {
+        total: allMembersRows.length,
+        statusCounts,
+        genderCounts,
+        ageCategoryCounts,
+        ministryCounts,
+        categoryCounts,
+        monthlyGrowth,
       },
       recentMembers,
       recentVisitors,
@@ -299,6 +398,7 @@ export {
   homepageSlides,
   leaders,
   mediaAssets,
+  memberFollowups,
   members,
   ministries,
   newsPosts,

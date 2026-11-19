@@ -22,6 +22,7 @@ import {
   homepageSlides,
   leaders,
   mediaAssets,
+  memberFollowups,
   members,
   ministries,
   newsPosts,
@@ -345,19 +346,64 @@ app.post('/api/public/prayers/:id/pray', async (req, res) => {
   }
 });
 
+function normalizePhoneForDedup(raw: string): string {
+  const digits = String(raw || '').replace(/\D+/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('254') && digits.length >= 12) {
+    return `0${digits.slice(-9)}`;
+  }
+  if ((digits.startsWith('7') || digits.startsWith('1')) && digits.length === 9) {
+    return `0${digits}`;
+  }
+  return digits;
+}
+
+async function generateUniqueMemberNumber(): Promise<string> {
+  const year = new Date().getFullYear();
+  const maxRow = await db.select({ maxId: sql<number>`COALESCE(MAX(${members.id}), 0)` }).from(members);
+  let seq = Number(maxRow[0]?.maxId ?? 0) + 1;
+  while (true) {
+    const candidate = `GVCC-${year}-${String(seq).padStart(4, '0')}`;
+    const existing = await db
+      .select({ id: members.id })
+      .from(members)
+      .where(eq(members.memberNumber, candidate));
+    if (!existing.length) return candidate;
+    seq += 1;
+  }
+}
+
 const memberRegSchema = z.object({
   fullName: z.string().min(2, 'Full name is required').max(140),
-  phone: z.string().min(6, 'Valid phone number is required').max(40),
-  email: z.string().email().optional().or(z.literal('')).nullable(),
-  location: z.string().max(140).optional().nullable(),
-  dateOfBirth: z.string().max(30).optional().nullable(),
   gender: z.string().max(30).optional().nullable(),
+  dateOfBirth: z.string().max(30).optional().nullable(),
+  maritalStatus: z.string().max(40).optional().nullable(),
+  nationality: z.string().max(80).optional().nullable(),
+  photoUrl: z.string().max(1_500_000).optional().nullable(),
+  phone: z.string().min(6, 'Valid phone number is required').max(40),
+  whatsappNumber: z.string().max(40).optional().nullable(),
+  email: z.string().email('Please enter a valid email address').optional().or(z.literal('')).nullable(),
+  residentialAddress: z.string().max(240).optional().nullable(),
+  location: z.string().max(140).optional().nullable(),
+  county: z.string().max(80).optional().nullable(),
+  emergencyContactName: z.string().max(140).optional().nullable(),
+  emergencyContactPhone: z.string().max(40).optional().nullable(),
+  acceptedChrist: z.boolean().optional().nullable(),
+  isBaptised: z.boolean().optional().nullable(),
+  baptismDate: z.string().max(30).optional().nullable(),
+  previousChurch: z.string().max(160).optional().nullable(),
   membershipType: z.string().default('New member'),
+  joinDate: z.string().max(30).optional().nullable(),
+  interestedMinistries: z.array(z.string().max(100)).max(20).optional().default([]),
   fellowshipId: z.number().int().positive().optional().nullable(),
+  preferredFellowship: z.string().max(140).optional().nullable(),
+  preferredService: z.string().max(60).optional().nullable(),
+  assignedPastor: z.string().max(140).optional().nullable(),
+  discipleshipStatus: z.string().max(60).optional().nullable(),
   ministryId: z.number().int().positive().optional().nullable(),
   preferredContactMethod: z.string().max(40).default('Phone'),
   testimony: z.string().max(2000).optional().nullable(),
-  consent: z.literal(true, { message: 'Privacy consent is required.' }),
+  consent: z.literal(true, { message: 'Declaration & privacy consent is required.' }),
 });
 
 app.post('/api/public/members', async (req, res) => {
@@ -367,38 +413,83 @@ app.post('/api/public/members', async (req, res) => {
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid member registration' });
     }
-    const total = await db.select({ value: count() }).from(members);
-    const year = new Date().getFullYear();
-    const seq = String(Number(total[0]?.value ?? 0) + 1).padStart(4, '0');
-    const memberNumber = `GVCC-${year}-${seq}`;
+    const d = parsed.data;
+    const normalizedPhone = normalizePhoneForDedup(d.phone);
+    const normalizedEmail = (d.email || '').trim().toLowerCase();
+
+    // Prevent duplicate registrations by normalized phone number or email
+    const existingRows = await db
+      .select({
+        id: members.id,
+        memberNumber: members.memberNumber,
+        fullName: members.fullName,
+        phone: members.phone,
+        email: members.email,
+      })
+      .from(members);
+
+    const duplicate = existingRows.find((row) => {
+      const rowPhone = normalizePhoneForDedup(row.phone);
+      const rowEmail = (row.email || '').trim().toLowerCase();
+      return (
+        (normalizedPhone && rowPhone && rowPhone === normalizedPhone) ||
+        (normalizedEmail && rowEmail && rowEmail === normalizedEmail)
+      );
+    });
+
+    if (duplicate) {
+      return res.status(409).json({
+        error: `A member registration already exists for this phone number or email (${duplicate.memberNumber} — ${duplicate.fullName}). Please contact the church office on 0727 543 663 to update your record.`,
+        existingMemberNumber: duplicate.memberNumber,
+      });
+    }
+
+    const memberNumber = await generateUniqueMemberNumber();
+    const today = new Date().toISOString().slice(0, 10);
 
     const [created] = await db
       .insert(members)
       .values({
         memberNumber,
-        fullName: parsed.data.fullName,
-        phone: parsed.data.phone,
-        email: parsed.data.email || null,
-        location: parsed.data.location || null,
-        dateOfBirth: parsed.data.dateOfBirth || null,
-        gender: parsed.data.gender || null,
-        registrationDate: new Date().toISOString().slice(0, 10),
-        membershipType: parsed.data.membershipType,
-        membershipStatus: 'New registration',
-        fellowshipId: parsed.data.fellowshipId ?? null,
-        ministryId: parsed.data.ministryId ?? null,
-        preferredContactMethod: parsed.data.preferredContactMethod,
-        testimony: parsed.data.testimony || null,
-        consent: parsed.data.consent,
+        fullName: d.fullName.trim(),
+        gender: d.gender?.trim() || null,
+        dateOfBirth: d.dateOfBirth?.trim() || null,
+        maritalStatus: d.maritalStatus?.trim() || null,
+        nationality: d.nationality?.trim() || 'Kenyan',
+        photoUrl: d.photoUrl || null,
+        phone: d.phone.trim(),
+        whatsappNumber: d.whatsappNumber?.trim() || d.phone.trim(),
+        email: d.email?.trim() || null,
+        residentialAddress: d.residentialAddress?.trim() || null,
+        location: d.location?.trim() || null,
+        county: d.county?.trim() || 'Kisii',
+        emergencyContactName: d.emergencyContactName?.trim() || null,
+        emergencyContactPhone: d.emergencyContactPhone?.trim() || null,
+        acceptedChrist: d.acceptedChrist ?? null,
+        isBaptised: d.isBaptised ?? null,
+        baptismDate: d.isBaptised ? (d.baptismDate?.trim() || null) : null,
+        previousChurch: d.previousChurch?.trim() || null,
+        membershipType: d.membershipType,
+        joinDate: d.joinDate?.trim() || today,
+        registrationDate: today,
+        membershipStatus: 'New Member',
+        interestedMinistries: Array.isArray(d.interestedMinistries) ? d.interestedMinistries : [],
+        fellowshipId: d.fellowshipId ?? null,
+        preferredFellowship: d.preferredFellowship?.trim() || null,
+        preferredService: d.preferredService?.trim() || 'First service',
+        assignedPastor: d.assignedPastor?.trim() || null,
+        discipleshipStatus: d.discipleshipStatus?.trim() || 'Not started',
+        ministryId: d.ministryId ?? null,
+        preferredContactMethod: d.preferredContactMethod || 'Phone',
+        testimony: d.testimony?.trim() || null,
+        consent: d.consent,
       })
-      .returning({
-        id: members.id,
-        memberNumber: members.memberNumber,
-      });
+      .returning();
 
     res.status(201).json({
       memberNumber: created.memberNumber,
-      message: 'Member registration received. Welcome to the GVCC family.',
+      member: created,
+      message: 'Welcome Home! Your GVCC Membership Registration is complete.',
     });
   } catch (error: any) {
     console.error('Member registration failed:', error);
@@ -820,48 +911,79 @@ app.post('/api/admin/upload', requireAuth, requireStaff, async (req: AuthRequest
   }
 });
 
-// Members CRUD
+// Members CRUD, Follow-ups, Backup & Recovery
 app.get('/api/admin/members', requireAuth, requireStaff, requirePermission('members.view'), async (req: AuthRequest, res) => {
   try {
     let rows = await db.select().from(members).orderBy(desc(members.createdAt));
     if (req.appUser?.role === 'fellowship_leader' && req.appUser.assignedFellowshipId) {
       rows = rows.filter((m) => m.fellowshipId === req.appUser!.assignedFellowshipId);
     }
-    res.json(rows);
+    const followupsRows = await db.select().from(memberFollowups).orderBy(desc(memberFollowups.createdAt));
+    const enriched = rows.map((m) => ({
+      ...m,
+      interestedMinistries: Array.isArray(m.interestedMinistries) ? m.interestedMinistries : [],
+      followups: followupsRows.filter((f) => f.memberId === m.id),
+    }));
+    res.json(enriched);
   } catch (error: any) {
+    console.error('Failed to load members:', error);
     res.status(500).json({ error: 'Failed to load members' });
   }
 });
 
 app.post('/api/admin/members', requireAuth, requireStaff, requirePermission('members.create'), async (req: AuthRequest, res) => {
   try {
-    const body = req.body;
-    const total = await db.select({ value: count() }).from(members);
-    const year = new Date().getFullYear();
-    const seq = String(Number(total[0]?.value ?? 0) + 1).padStart(4, '0');
-    const memberNumber = `GVCC-${year}-${seq}`;
+    const body = req.body || {};
+    if (!body.fullName || !body.phone) {
+      return res.status(400).json({ error: 'Full name and phone number are required.' });
+    }
+    const memberNumber = await generateUniqueMemberNumber();
+    const today = new Date().toISOString().slice(0, 10);
 
     const [created] = await db
       .insert(members)
       .values({
         memberNumber,
-        fullName: body.fullName,
-        phone: body.phone,
+        fullName: String(body.fullName).trim(),
+        gender: body.gender || null,
+        dateOfBirth: body.dateOfBirth || null,
+        maritalStatus: body.maritalStatus || null,
+        nationality: body.nationality || 'Kenyan',
+        photoUrl: body.photoUrl || null,
+        phone: String(body.phone).trim(),
+        whatsappNumber: body.whatsappNumber || String(body.phone).trim(),
         email: body.email || null,
+        residentialAddress: body.residentialAddress || null,
         location: body.location || null,
-        registrationDate: body.registrationDate || new Date().toISOString().slice(0, 10),
-        membershipType: body.membershipType || 'Existing member',
-        membershipStatus: body.membershipStatus || 'Active member',
+        county: body.county || 'Kisii',
+        emergencyContactName: body.emergencyContactName || null,
+        emergencyContactPhone: body.emergencyContactPhone || null,
+        acceptedChrist: typeof body.acceptedChrist === 'boolean' ? body.acceptedChrist : null,
+        isBaptised: typeof body.isBaptised === 'boolean' ? body.isBaptised : null,
+        baptismDate: body.baptismDate || null,
+        previousChurch: body.previousChurch || null,
+        joinDate: body.joinDate || today,
+        registrationDate: body.registrationDate || today,
+        membershipType: body.membershipType || 'New member',
+        membershipStatus: body.membershipStatus || 'Active Member',
+        interestedMinistries: Array.isArray(body.interestedMinistries) ? body.interestedMinistries : [],
         fellowshipId: body.fellowshipId ? Number(body.fellowshipId) : null,
+        preferredFellowship: body.preferredFellowship || null,
+        preferredService: body.preferredService || 'First service',
+        assignedPastor: body.assignedPastor || null,
+        discipleshipStatus: body.discipleshipStatus || 'Not started',
         ministryId: body.ministryId ? Number(body.ministryId) : null,
+        preferredContactMethod: body.preferredContactMethod || 'Phone',
+        testimony: body.testimony || null,
         notes: body.notes || null,
         consent: true,
       })
       .returning();
 
     await logAudit(req.appUser!.uid, req.appUser!.email, 'member.create', 'members', String(created.id), created.memberNumber);
-    res.status(201).json(created);
+    res.status(201).json({ ...created, followups: [] });
   } catch (error: any) {
+    console.error('Create member failed:', error);
     res.status(500).json({ error: 'Failed to create member' });
   }
 });
@@ -869,26 +991,222 @@ app.post('/api/admin/members', requireAuth, requireStaff, requirePermission('mem
 app.patch('/api/admin/members/:id', requireAuth, requireStaff, requirePermission('members.edit'), async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
-    const body = req.body;
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: 'Invalid member ID' });
+    }
+    const b = req.body || {};
+    const updatePayload: Record<string, unknown> = { updatedAt: new Date() };
+    const assignIfDefined = (key: string, val: unknown) => {
+      if (val !== undefined) updatePayload[key] = val;
+    };
+
+    assignIfDefined('fullName', b.fullName !== undefined ? String(b.fullName).trim() : undefined);
+    assignIfDefined('gender', b.gender);
+    assignIfDefined('dateOfBirth', b.dateOfBirth);
+    assignIfDefined('maritalStatus', b.maritalStatus);
+    assignIfDefined('nationality', b.nationality);
+    assignIfDefined('photoUrl', b.photoUrl);
+    assignIfDefined('phone', b.phone !== undefined ? String(b.phone).trim() : undefined);
+    assignIfDefined('whatsappNumber', b.whatsappNumber);
+    assignIfDefined('email', b.email === '' ? null : b.email);
+    assignIfDefined('residentialAddress', b.residentialAddress);
+    assignIfDefined('location', b.location);
+    assignIfDefined('county', b.county);
+    assignIfDefined('emergencyContactName', b.emergencyContactName);
+    assignIfDefined('emergencyContactPhone', b.emergencyContactPhone);
+    assignIfDefined('acceptedChrist', typeof b.acceptedChrist === 'boolean' || b.acceptedChrist === null ? b.acceptedChrist : undefined);
+    assignIfDefined('isBaptised', typeof b.isBaptised === 'boolean' || b.isBaptised === null ? b.isBaptised : undefined);
+    assignIfDefined('baptismDate', b.baptismDate);
+    assignIfDefined('previousChurch', b.previousChurch);
+    assignIfDefined('membershipType', b.membershipType);
+    assignIfDefined('joinDate', b.joinDate);
+    assignIfDefined('membershipStatus', b.membershipStatus);
+    if (Array.isArray(b.interestedMinistries)) {
+      updatePayload.interestedMinistries = b.interestedMinistries;
+    }
+    if (b.fellowshipId !== undefined) {
+      updatePayload.fellowshipId = b.fellowshipId ? Number(b.fellowshipId) : null;
+    }
+    assignIfDefined('preferredFellowship', b.preferredFellowship);
+    assignIfDefined('preferredService', b.preferredService);
+    assignIfDefined('assignedPastor', b.assignedPastor);
+    assignIfDefined('discipleshipStatus', b.discipleshipStatus);
+    if (b.ministryId !== undefined) {
+      updatePayload.ministryId = b.ministryId ? Number(b.ministryId) : null;
+    }
+    assignIfDefined('preferredContactMethod', b.preferredContactMethod);
+    assignIfDefined('testimony', b.testimony);
+    assignIfDefined('notes', b.notes);
+
     const [updated] = await db
       .update(members)
-      .set({
-        fullName: body.fullName,
-        phone: body.phone,
-        email: body.email ?? null,
-        location: body.location ?? null,
-        membershipStatus: body.membershipStatus,
-        fellowshipId: body.fellowshipId ? Number(body.fellowshipId) : null,
-        ministryId: body.ministryId ? Number(body.ministryId) : null,
-        notes: body.notes ?? null,
-        updatedAt: new Date(),
-      })
+      .set(updatePayload)
       .where(eq(members.id, id))
       .returning();
-    await logAudit(req.appUser!.uid, req.appUser!.email, 'member.update', 'members', String(id), body.membershipStatus);
+
+    if (!updated) {
+      return res.status(404).json({ error: 'Member record not found' });
+    }
+    await logAudit(
+      req.appUser!.uid,
+      req.appUser!.email,
+      'member.update',
+      'members',
+      String(id),
+      updated.membershipStatus
+    );
     res.json(updated);
   } catch (error: any) {
+    console.error('Update member failed:', error);
     res.status(500).json({ error: 'Failed to update member' });
+  }
+});
+
+app.post('/api/admin/members/:id/followups', requireAuth, requireStaff, requirePermission('members.edit'), async (req: AuthRequest, res) => {
+  try {
+    const memberId = Number(req.params.id);
+    if (!Number.isInteger(memberId) || memberId <= 0) {
+      return res.status(400).json({ error: 'Invalid member ID' });
+    }
+    const { followupMethod, notes, nextAction, nextStatus } = req.body || {};
+    if (!notes || !String(notes).trim()) {
+      return res.status(400).json({ error: 'Follow-up notes are required.' });
+    }
+    const [created] = await db
+      .insert(memberFollowups)
+      .values({
+        memberId,
+        staffUserId: req.appUser!.id,
+        staffName: req.appUser!.fullName || req.appUser!.email,
+        followupMethod: String(followupMethod || 'Phone Call'),
+        notes: String(notes).trim(),
+        nextAction: nextAction ? String(nextAction).trim() : null,
+      })
+      .returning();
+
+    if (nextStatus && typeof nextStatus === 'string') {
+      await db
+        .update(members)
+        .set({ membershipStatus: nextStatus, updatedAt: new Date() })
+        .where(eq(members.id, memberId));
+    }
+
+    await logAudit(
+      req.appUser!.uid,
+      req.appUser!.email,
+      'member.followup',
+      'members',
+      String(memberId),
+      `${created.followupMethod}${nextStatus ? ` -> ${nextStatus}` : ''}`
+    );
+    res.status(201).json(created);
+  } catch (error: any) {
+    console.error('Create member followup failed:', error);
+    res.status(500).json({ error: 'Failed to record pastoral follow-up' });
+  }
+});
+
+app.get('/api/admin/members/backup', requireAuth, requireStaff, requirePermission('reports.export'), async (req: AuthRequest, res) => {
+  try {
+    const [allMembers, allFollowups] = await Promise.all([
+      db.select().from(members).orderBy(asc(members.id)),
+      db.select().from(memberFollowups).orderBy(asc(memberFollowups.id)),
+    ]);
+    await logAudit(req.appUser!.uid, req.appUser!.email, 'members.backup', 'members', 'all', `${allMembers.length} records`);
+    res.json({
+      version: 1,
+      church: 'Gracious Voice Celebration Centre, Ogembo',
+      exportedAt: new Date().toISOString(),
+      totalMembers: allMembers.length,
+      members: allMembers,
+      followups: allFollowups,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to create member backup' });
+  }
+});
+
+app.post('/api/admin/members/restore', requireAuth, requireStaff, requirePermission('members.create'), async (req: AuthRequest, res) => {
+  try {
+    const incoming = Array.isArray(req.body?.members) ? req.body.members : [];
+    const mode = req.body?.mode === 'overwrite' ? 'overwrite' : 'skip';
+    if (!incoming.length) {
+      return res.status(400).json({ error: 'No member records found in backup payload.' });
+    }
+    let inserted = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    for (const item of incoming) {
+      if (!item?.fullName || !item?.phone) {
+        skipped += 1;
+        continue;
+      }
+      const memberNumber = item.memberNumber ? String(item.memberNumber) : await generateUniqueMemberNumber();
+      const existing = await db
+        .select({ id: members.id })
+        .from(members)
+        .where(eq(members.memberNumber, memberNumber));
+
+      const recordValues = {
+        fullName: String(item.fullName),
+        gender: item.gender ?? null,
+        dateOfBirth: item.dateOfBirth ?? null,
+        maritalStatus: item.maritalStatus ?? null,
+        nationality: item.nationality ?? 'Kenyan',
+        photoUrl: item.photoUrl ?? null,
+        phone: String(item.phone),
+        whatsappNumber: item.whatsappNumber ?? null,
+        email: item.email ?? null,
+        residentialAddress: item.residentialAddress ?? null,
+        location: item.location ?? null,
+        county: item.county ?? 'Kisii',
+        emergencyContactName: item.emergencyContactName ?? null,
+        emergencyContactPhone: item.emergencyContactPhone ?? null,
+        acceptedChrist: typeof item.acceptedChrist === 'boolean' ? item.acceptedChrist : null,
+        isBaptised: typeof item.isBaptised === 'boolean' ? item.isBaptised : null,
+        baptismDate: item.baptismDate ?? null,
+        previousChurch: item.previousChurch ?? null,
+        membershipType: item.membershipType || 'New member',
+        joinDate: item.joinDate || item.registrationDate || new Date().toISOString().slice(0, 10),
+        registrationDate: item.registrationDate || new Date().toISOString().slice(0, 10),
+        membershipStatus: item.membershipStatus || 'New Member',
+        interestedMinistries: Array.isArray(item.interestedMinistries) ? item.interestedMinistries : [],
+        preferredFellowship: item.preferredFellowship ?? null,
+        preferredService: item.preferredService ?? 'First service',
+        assignedPastor: item.assignedPastor ?? null,
+        discipleshipStatus: item.discipleshipStatus ?? 'Not started',
+        preferredContactMethod: item.preferredContactMethod ?? 'Phone',
+        testimony: item.testimony ?? null,
+        notes: item.notes ?? null,
+        consent: true,
+      };
+
+      if (existing.length) {
+        if (mode === 'overwrite') {
+          await db.update(members).set({ ...recordValues, updatedAt: new Date() }).where(eq(members.id, existing[0].id));
+          updated += 1;
+        } else {
+          skipped += 1;
+        }
+      } else {
+        await db.insert(members).values({ memberNumber, ...recordValues });
+        inserted += 1;
+      }
+    }
+
+    await logAudit(
+      req.appUser!.uid,
+      req.appUser!.email,
+      'members.restore',
+      'members',
+      'backup',
+      `inserted:${inserted}, updated:${updated}, skipped:${skipped}`
+    );
+    res.json({ inserted, updated, skipped });
+  } catch (error: any) {
+    console.error('Member restore failed:', error);
+    res.status(500).json({ error: 'Failed to restore membership backup' });
   }
 });
 
@@ -2134,13 +2452,42 @@ app.delete('/api/admin/testimonies/:id', requireAuth, requireStaff, requirePermi
   res.json({ ok: true });
 });
 
-// CSV Export
+// CSV & Excel Export
 app.get('/api/admin/export/:type', requireAuth, requireStaff, requirePermission('reports.export'), async (req: AuthRequest, res) => {
   try {
     const type = req.params.type;
     let rows: Record<string, unknown>[] = [];
-    if (type === 'members') {
-      rows = await db.select().from(members).orderBy(desc(members.createdAt));
+    if (type === 'members' || type === 'members-excel') {
+      const rawMembers = await db.select().from(members).orderBy(desc(members.createdAt));
+      rows = rawMembers.map((m) => ({
+        Member_ID: m.memberNumber,
+        Full_Name: m.fullName,
+        Gender: m.gender || '',
+        Date_Of_Birth: m.dateOfBirth || '',
+        Marital_Status: m.maritalStatus || '',
+        Nationality: m.nationality || '',
+        Phone: m.phone,
+        WhatsApp: m.whatsappNumber || '',
+        Email: m.email || '',
+        Residential_Address: m.residentialAddress || '',
+        Estate_Location: m.location || '',
+        County: m.county || '',
+        Emergency_Contact: m.emergencyContactName || '',
+        Emergency_Phone: m.emergencyContactPhone || '',
+        Accepted_Christ: m.acceptedChrist === true ? 'Yes' : m.acceptedChrist === false ? 'No' : '',
+        Water_Baptised: m.isBaptised === true ? 'Yes' : m.isBaptised === false ? 'No' : '',
+        Baptism_Date: m.baptismDate || '',
+        Previous_Church: m.previousChurch || '',
+        Category: m.membershipType,
+        Join_Date: m.joinDate || m.registrationDate,
+        Status: m.membershipStatus,
+        Ministries: Array.isArray(m.interestedMinistries) ? m.interestedMinistries.join('; ') : '',
+        Preferred_Fellowship: m.preferredFellowship || '',
+        Preferred_Service: m.preferredService || '',
+        Assigned_Pastor: m.assignedPastor || '',
+        Discipleship_Status: m.discipleshipStatus || '',
+        Notes: m.notes || '',
+      }));
     } else if (type === 'visitors') {
       rows = await db.select().from(visitors).orderBy(desc(visitors.createdAt));
     } else if (type === 'fellowships') {
@@ -2163,8 +2510,50 @@ app.get('/api/admin/export/:type', requireAuth, requireStaff, requirePermission(
     } else {
       return res.status(400).json({ error: 'Unsupported export type' });
     }
+
+    if (type === 'members-excel') {
+      const escapeXml = (val: unknown) =>
+        String(val ?? '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      const headers = rows.length ? Object.keys(rows[0]) : ['Member_ID', 'Full_Name', 'Phone', 'Status'];
+      const headerXml = headers
+        .map((h) => `<Cell ss:StyleID="Header"><Data ss:Type="String">${escapeXml(h.replace(/_/g, ' '))}</Data></Cell>`)
+        .join('');
+      const rowsXml = rows
+        .map(
+          (r) =>
+            `<Row>${headers
+              .map((h) => `<Cell><Data ss:Type="String">${escapeXml(r[h])}</Data></Cell>`)
+              .join('')}</Row>`
+        )
+        .join('');
+      const xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="Header">
+   <Font ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#0F172A" ss:Pattern="Solid"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="GVCC Members">
+  <Table>
+   <Row>${headerXml}</Row>
+   ${rowsXml}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+      res.setHeader('Content-Type', 'application/vnd.ms-excel; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="gvcc-members-register.xls"');
+      return res.send(xml);
+    }
+
     if (!rows.length) {
-      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="gvcc-${type}.csv"`);
       return res.send('No records available\n');
     }
@@ -2177,9 +2566,9 @@ app.get('/api/admin/export/:type', requireAuth, requireStaff, requirePermission(
       headers.join(','),
       ...rows.map((r) => headers.map((h) => escapeCsv(r[h])).join(',')),
     ].join('\n');
-    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="gvcc-${type}.csv"`);
-    res.send(csv);
+    res.send('\uFEFF' + csv);
   } catch {
     res.status(500).json({ error: 'Export failed' });
   }

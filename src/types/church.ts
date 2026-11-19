@@ -195,22 +195,54 @@ export interface MediaAsset {
   displayOrder: number;
 }
 
+export interface MemberFollowupRecord {
+  id: number;
+  memberId: number;
+  staffName: string;
+  followupDate: string;
+  followupMethod: string;
+  notes: string;
+  nextAction: string | null;
+}
+
 export interface MemberRecord {
   id: number;
   memberNumber: string;
   fullName: string;
+  gender: string | null;
+  dateOfBirth: string | null;
+  maritalStatus: string | null;
+  nationality: string | null;
+  photoUrl: string | null;
   phone: string;
+  whatsappNumber: string | null;
   email: string | null;
+  residentialAddress: string | null;
   location: string | null;
-  registrationDate: string;
+  county: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  acceptedChrist: boolean | null;
+  isBaptised: boolean | null;
+  baptismDate: string | null;
+  previousChurch: string | null;
   membershipType: string;
+  joinDate: string | null;
+  registrationDate: string;
   membershipStatus: string;
+  interestedMinistries: string[];
   fellowshipId: number | null;
+  preferredFellowship: string | null;
+  preferredService: string | null;
+  assignedPastor: string | null;
+  discipleshipStatus: string | null;
   ministryId: number | null;
   preferredContactMethod: string | null;
   testimony: string | null;
   notes: string | null;
   createdAt: string;
+  updatedAt?: string;
+  followups?: MemberFollowupRecord[];
 }
 
 export interface VisitorRecord {

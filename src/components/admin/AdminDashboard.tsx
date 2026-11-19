@@ -34,7 +34,8 @@ import { AssetManagementPanel } from './AssetManagementPanel';
 import { DocumentHubHelpPanel } from './DocumentHubHelpPanel';
 import { FirestoreMemberDirectory } from './FirestoreMemberDirectory';
 import { GoogleWorkspacePanel } from './GoogleWorkspacePanel';
-import { ImportMembersUtility } from './ImportMembersUtility';
+import { MemberAnalyticsPanel } from './MemberAnalyticsPanel';
+import { MemberManagementPanel } from './MemberManagementPanel';
 import {
   ChurchAssetRecord,
   ChurchSettings,
@@ -136,12 +137,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [settingsForm, setSettingsForm] = useState<ChurchSettings | null>(null);
 
   // Filters & Form States
-  const [memberSearch, setMemberSearch] = useState('');
-  const [memberStatusFilter, setMemberStatusFilter] = useState('All');
-  const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
-  const [bulkStatus, setBulkStatus] = useState('Active member');
-  const [showImportUtility, setShowImportUtility] = useState(true);
-
   const [rosterSearch, setRosterSearch] = useState('');
   const [rosterDeptFilter, setRosterDeptFilter] = useState('All');
   const [newRoster, setNewRoster] = useState({
@@ -152,17 +147,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     contactPhone: '',
     shiftTime: '8:30 AM – 12:30 PM',
     status: 'Scheduled',
-    notes: '',
-  });
-
-  const [newMember, setNewMember] = useState({
-    fullName: '',
-    phone: '',
-    email: '',
-    location: '',
-    membershipType: 'Existing member',
-    membershipStatus: 'Active member',
-    fellowshipId: '',
     notes: '',
   });
 
@@ -491,43 +475,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // -------------------------------------------------------------------------
   // Action Handlers
   // -------------------------------------------------------------------------
-  const handleCreateMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await authFetch('/api/admin/members', {
-      method: 'POST',
-      body: JSON.stringify(newMember),
-    });
-    if (res.ok) {
-      setNewMember({
-        fullName: '',
-        phone: '',
-        email: '',
-        location: '',
-        membershipType: 'Existing member',
-        membershipStatus: 'Active member',
-        fellowshipId: '',
-        notes: '',
-      });
-      notify('Member registered in church directory.');
-      loadTabData('members');
-    } else {
-      const err = await res.json().catch(() => ({}));
-      notify(err.error || 'Could not save member.');
-    }
-  };
-
-  const handleBulkMemberStatus = async () => {
-    if (!selectedMemberIds.length) return;
-    const res = await authFetch('/api/admin/members/bulk-status', {
-      method: 'POST',
-      body: JSON.stringify({ ids: selectedMemberIds, membershipStatus: bulkStatus }),
-    });
-    if (res.ok) {
-      setSelectedMemberIds([]);
-      notify('Bulk member status updated.');
-      loadTabData('members');
-    }
-  };
 
   const handleCsvExport = async (type: 'members' | 'visitors' | 'fellowships' | 'giving' | 'rosters' | 'assets') => {
     const res = await authFetch(`/api/admin/export/${type}`);
@@ -594,17 +541,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'docs-hub', label: 'Document Hub & Help', icon: <BookOpen className="w-4 h-4" />, show: true },
     { id: 'settings', label: 'Website Settings', icon: <Settings className="w-4 h-4" />, show: hasPerm('settings.manage') },
   ];
-
-  const filteredMembers = membersList.filter((m) => {
-    const q = memberSearch.trim().toLowerCase();
-    const matchesSearch =
-      !q ||
-      m.fullName.toLowerCase().includes(q) ||
-      m.phone.toLowerCase().includes(q) ||
-      m.memberNumber.toLowerCase().includes(q);
-    const matchesStatus = memberStatusFilter === 'All' || m.membershipStatus === memberStatusFilter;
-    return matchesSearch && matchesStatus;
-  });
 
   const filteredRosters = rostersList.filter((r) => {
     const q = rosterSearch.trim().toLowerCase();
@@ -748,20 +684,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <h2 className="text-sm font-semibold text-slate-900 mb-3">Quick Actions</h2>
                 <div className="flex flex-wrap gap-2">
                   {hasPerm('members.create') && (
-                    <>
-                      <button onClick={() => setActiveTab('members')} className="px-3.5 py-2 bg-[#0F172A] text-white text-xs font-medium cursor-pointer">
-                        + Add Member
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowImportUtility(true);
-                          setActiveTab('members');
-                        }}
-                        className="px-3.5 py-2 border border-slate-300 text-xs font-medium hover:bg-slate-50 cursor-pointer"
-                      >
-                        Import Members (CSV)
-                      </button>
-                    </>
+                    <button onClick={() => setActiveTab('members')} className="px-3.5 py-2 bg-[#0F172A] text-white text-xs font-medium cursor-pointer">
+                      + Manage / Add Members
+                    </button>
                   )}
                   {hasPerm('members.view') && (
                     <button
@@ -814,343 +739,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* Recent Activity */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white border border-slate-200 p-5">
-                  <h3 className="text-sm font-semibold mb-3">Recent Registrations</h3>
-                  {overview.recentMembers.length === 0 ? (
-                    <p className="text-xs text-slate-500">No members registered yet.</p>
-                  ) : (
-                    <ul className="divide-y divide-slate-100 text-xs">
-                      {overview.recentMembers.map((m: MemberRecord) => (
-                        <li key={m.id} className="py-2.5 flex justify-between">
-                          <span><strong>{m.fullName}</strong> · {m.phone}</span>
-                          <span className="font-mono text-slate-500">{m.memberNumber}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+              {/* Membership Demographics, Charts & Growth Statistics */}
+              {overview.membershipAnalytics && (
+                <MemberAnalyticsPanel
+                  analytics={overview.membershipAnalytics}
+                  recentMembers={overview.recentMembers || []}
+                  onViewMemberTab={hasPerm('members.view') ? () => setActiveTab('members') : undefined}
+                />
+              )}
 
-                <div className="bg-white border border-slate-200 p-5">
-                  <h3 className="text-sm font-semibold mb-3">Recent Audit Log</h3>
-                  {overview.recentLogs.length === 0 ? (
-                    <p className="text-xs text-slate-500">No administrative actions recorded yet.</p>
-                  ) : (
-                    <ul className="divide-y divide-slate-100 text-xs">
-                      {overview.recentLogs.map((l: any) => (
-                        <li key={l.id} className="py-2 flex justify-between gap-4">
-                          <span className="truncate"><strong>{l.action}</strong> · {l.actorEmail}</span>
-                          <span className="font-mono text-slate-400 shrink-0">
-                            {new Date(l.createdAt).toLocaleDateString()}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+              {/* Recent Audit Log */}
+              <div className="bg-white border border-slate-200 p-5">
+                <h3 className="text-sm font-semibold mb-3">Recent Audit Log</h3>
+                {overview.recentLogs.length === 0 ? (
+                  <p className="text-xs text-slate-500">No administrative actions recorded yet.</p>
+                ) : (
+                  <ul className="divide-y divide-slate-100 text-xs">
+                    {overview.recentLogs.map((l: any) => (
+                      <li key={l.id} className="py-2 flex justify-between gap-4">
+                        <span className="truncate"><strong>{l.action}</strong> · {l.actorEmail}</span>
+                        <span className="font-mono text-slate-400 shrink-0">
+                          {new Date(l.createdAt).toLocaleDateString()}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           )}
 
           {/* 2. MEMBERS */}
           {activeTab === 'members' && (
-            <div className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-xl font-semibold">Church Membership Directory</h1>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Confidential register of GVCC members, fellowship assignments, contact details, and pastoral status.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('firestore-members')}
-                    className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-medium cursor-pointer"
-                  >
-                    <Database className="w-3.5 h-3.5 text-[#9A6B2F]" />
-                    Firestore Directory
-                  </button>
-                  {hasPerm('members.create') && (
-                    <button
-                      type="button"
-                      onClick={() => setShowImportUtility((prev) => !prev)}
-                      className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-medium cursor-pointer border ${
-                        showImportUtility
-                          ? 'bg-[#B4823E] text-white border-[#B4823E]'
-                          : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
-                      }`}
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      {showImportUtility ? 'Hide CSV Importer' : 'Import Members (CSV)'}
-                    </button>
-                  )}
-                  {hasPerm('reports.export') && (
-                    <button
-                      type="button"
-                      onClick={() => handleCsvExport('members')}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-[#0F172A] text-white text-xs font-medium cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      Export Members CSV
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {hasPerm('members.create') && showImportUtility && (
-                <ImportMembersUtility
-                  fellowships={fellowshipsData.fellowships}
-                  canCreateMembers={hasPerm('members.create')}
-                  authFetch={authFetch}
-                  onSqlSynced={() => loadTabData('members')}
-                  onNotify={notify}
-                  onClose={() => setShowImportUtility(false)}
-                />
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white border border-slate-200 p-4">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">Total Registered Members</p>
-                  <p className="font-mono tabular-nums text-2xl font-semibold text-slate-900 mt-1">
-                    {membersList.length}
-                  </p>
-                </div>
-                <div className="bg-white border border-slate-200 p-4">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">Active Members</p>
-                  <p className="font-mono tabular-nums text-2xl font-semibold text-emerald-700 mt-1">
-                    {membersList.filter((m) => m.membershipStatus === 'Active member').length}
-                  </p>
-                </div>
-                <div className="bg-white border border-slate-200 p-4">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">New / Orientation</p>
-                  <p className="font-mono tabular-nums text-2xl font-semibold text-[#9A6B2F] mt-1">
-                    {membersList.filter((m) =>
-                      ['New registration', 'Pending verification', 'Contacted', 'Orientation'].includes(m.membershipStatus)
-                    ).length}
-                  </p>
-                </div>
-              </div>
-
-              {hasPerm('members.create') && (
-                <form onSubmit={handleCreateMember} className="bg-white border border-slate-200 p-5 space-y-3">
-                  <h2 className="text-sm font-semibold">Capture Church Member Record</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <input
-                      required
-                      placeholder="Full Name *"
-                      value={newMember.fullName}
-                      onChange={(e) => setNewMember({ ...newMember, fullName: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs sm:col-span-2"
-                    />
-                    <input
-                      required
-                      placeholder="Phone Number *"
-                      value={newMember.phone}
-                      onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    />
-                    <input
-                      type="email"
-                      placeholder="Email Address (optional)"
-                      value={newMember.email}
-                      onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <input
-                      placeholder="Residence / Area / Village"
-                      value={newMember.location}
-                      onChange={(e) => setNewMember({ ...newMember, location: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    />
-                    <select
-                      value={newMember.fellowshipId}
-                      onChange={(e) => setNewMember({ ...newMember, fellowshipId: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    >
-                      <option value="">Select Fellowship (optional)</option>
-                      {fellowshipsData.fellowships.map((f) => (
-                        <option key={f.id} value={f.id}>{f.name}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={newMember.membershipType}
-                      onChange={(e) => setNewMember({ ...newMember, membershipType: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    >
-                      {['Existing member', 'New member', 'Youth', 'Visitor convert', 'Transfer'].map((t) => (
-                        <option key={t}>{t}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={newMember.membershipStatus}
-                      onChange={(e) => setNewMember({ ...newMember, membershipStatus: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    >
-                      {['Active member', 'New registration', 'Pending verification', 'Contacted', 'Orientation'].map((s) => (
-                        <option key={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex flex-wrap gap-3 items-center">
-                    <input
-                      placeholder="Pastoral or family notes (optional)"
-                      value={newMember.notes}
-                      onChange={(e) => setNewMember({ ...newMember, notes: e.target.value })}
-                      className="flex-1 min-w-[220px] px-3 py-2 border border-slate-300 text-xs"
-                    />
-                    <button type="submit" className="px-4 py-2 bg-[#B4823E] text-white text-xs font-semibold cursor-pointer">
-                      <Plus className="w-3.5 h-3.5 inline mr-1" /> Register Member
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              <div className="bg-white border border-slate-200 p-4 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      placeholder="Search name, phone, or GVCC ID..."
-                      value={memberSearch}
-                      onChange={(e) => setMemberSearch(e.target.value)}
-                      className="px-3 py-2 border border-slate-300 text-xs w-64"
-                    />
-                    <select
-                      value={memberStatusFilter}
-                      onChange={(e) => setMemberStatusFilter(e.target.value)}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    >
-                      <option value="All">All statuses</option>
-                      {['New registration', 'Pending verification', 'Contacted', 'Orientation', 'Active member', 'Inactive', 'Transferred', 'Archived'].map((s) => (
-                        <option key={s}>{s}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {selectedMemberIds.length > 0 && hasPerm('members.edit') && (
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={bulkStatus}
-                        onChange={(e) => setBulkStatus(e.target.value)}
-                        className="px-2 py-1.5 border border-slate-300 text-xs"
-                      >
-                        {['Active member', 'Contacted', 'Orientation', 'Archived'].map((s) => (
-                          <option key={s}>{s}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={handleBulkMemberStatus}
-                        className="px-3 py-1.5 bg-slate-900 text-white text-xs cursor-pointer"
-                      >
-                        Apply to {selectedMemberIds.length} selected
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="border-b border-slate-200 text-slate-500">
-                      <tr>
-                        <th className="py-2 pr-2"><input type="checkbox" onChange={(e) => setSelectedMemberIds(e.target.checked ? filteredMembers.map((m) => m.id) : [])} /></th>
-                        <th className="py-2">Member ID</th>
-                        <th className="py-2">Name & Contact</th>
-                        <th className="py-2">Location & Fellowship</th>
-                        <th className="py-2">Type / Joined</th>
-                        <th className="py-2">Status</th>
-                        <th className="py-2 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredMembers.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="py-6 text-center text-slate-500">
-                            No member records match your filter.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredMembers.map((m) => {
-                          const fellowshipName = fellowshipsData.fellowships.find((f) => f.id === m.fellowshipId)?.name;
-                          return (
-                            <tr key={m.id} className="hover:bg-slate-50">
-                              <td className="py-2.5 pr-2">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedMemberIds.includes(m.id)}
-                                  onChange={(e) =>
-                                    setSelectedMemberIds((prev) =>
-                                      e.target.checked ? [...prev, m.id] : prev.filter((id) => id !== m.id)
-                                    )
-                                  }
-                                />
-                              </td>
-                              <td className="py-2.5 font-mono tabular-nums">{m.memberNumber}</td>
-                              <td className="py-2.5">
-                                <span className="font-medium block">{m.fullName}</span>
-                                <span className="font-mono text-[11px] text-slate-500">
-                                  {m.phone}{m.email ? ` · ${m.email}` : ''}
-                                </span>
-                                {m.notes && (
-                                  <span className="block text-[11px] text-slate-400 mt-0.5">{m.notes}</span>
-                                )}
-                              </td>
-                              <td className="py-2.5">
-                                <span className="block">{m.location || '—'}</span>
-                                {fellowshipName && (
-                                  <span className="text-[11px] text-[#9A6B2F]">{fellowshipName}</span>
-                                )}
-                              </td>
-                              <td className="py-2.5 text-slate-600">
-                                <span className="block">{m.membershipType}</span>
-                                <span className="font-mono text-[11px] text-slate-400">{m.registrationDate}</span>
-                              </td>
-                              <td className="py-2.5">
-                                <select
-                                  disabled={!hasPerm('members.edit')}
-                                  value={m.membershipStatus}
-                                  onChange={async (e) => {
-                                    await authFetch(`/api/admin/members/${m.id}`, {
-                                      method: 'PATCH',
-                                      body: JSON.stringify({ ...m, membershipStatus: e.target.value }),
-                                    });
-                                    notify('Member status updated.');
-                                    loadTabData('members');
-                                  }}
-                                  className="px-2 py-1 border border-slate-200 bg-white text-xs"
-                                >
-                                  {['New registration', 'Pending verification', 'Contacted', 'Orientation', 'Active member', 'Inactive', 'Transferred', 'Archived'].map((s) => (
-                                    <option key={s}>{s}</option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td className="py-2.5 text-right">
-                                {hasPerm('members.archive') && (
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      await authFetch(`/api/admin/members/${m.id}`, { method: 'DELETE' });
-                                      notify('Member record removed.');
-                                      loadTabData('members');
-                                    }}
-                                    className="px-2.5 py-1 border border-red-200 text-red-700 text-xs cursor-pointer"
-                                  >
-                                    Delete
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            <MemberManagementPanel
+              membersList={membersList}
+              fellowships={fellowshipsData.fellowships}
+              canCreate={hasPerm('members.create')}
+              canEdit={hasPerm('members.edit')}
+              canDelete={hasPerm('members.archive')}
+              canExport={hasPerm('reports.export')}
+              authFetch={authFetch}
+              onRefresh={() => loadTabData('members')}
+              onNotify={notify}
+              onOpenFirestoreDirectory={() => setActiveTab('firestore-members')}
+            />
           )}
 
           {/* 2b. DUTY ROSTERS */}
@@ -3381,10 +3013,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {activeTab === 'docs-hub' && (
             <DocumentHubHelpPanel
               onOpenWorkspaceTab={() => setActiveTab('workspace')}
-              onOpenMembersTab={() => {
-                setShowImportUtility(true);
-                setActiveTab('members');
-              }}
+              onOpenMembersTab={() => setActiveTab('members')}
               onExportCsv={handleCsvExport}
               canExportReports={hasPerm('reports.export')}
               onNotify={notify}

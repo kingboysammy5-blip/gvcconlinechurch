@@ -32,6 +32,7 @@ import { ChurchMediaPortal } from './ChurchMediaPortal';
 import { GallerySection } from './GallerySection';
 import { PrayerRequestForm } from './PrayerRequestForm';
 import { SearchStudySection } from './SearchStudySection';
+import { JoinChurchForm } from './JoinChurchForm';
 import {
   EventDetailModal,
   FellowshipJoinModal,
@@ -154,8 +155,16 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
     }
   });
 
-  // Connect Tabs: visitor vs member vs contact
-  const [connectTab, setConnectTab] = useState<'visitor' | 'member' | 'contact'>('visitor');
+  // Connect Tabs: member (Join Our Church) vs visitor vs contact
+  const [connectTab, setConnectTab] = useState<'member' | 'visitor' | 'contact'>(() => {
+    if (
+      typeof window !== 'undefined' &&
+      (window.location.hash === '#visitor' || window.location.hash === '#visit')
+    ) {
+      return 'visitor';
+    }
+    return 'member';
+  });
 
   const [visitorForm, setVisitorForm] = useState({
     fullName: '',
@@ -172,22 +181,6 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
   const [visitorResult, setVisitorResult] = useState<string | null>(null);
   const [visitorError, setVisitorError] = useState<string | null>(null);
   const [visitorLoading, setVisitorLoading] = useState(false);
-
-  const [memberForm, setMemberForm] = useState({
-    fullName: '',
-    phone: '',
-    email: '',
-    location: '',
-    membershipType: 'New member',
-    fellowshipId: '',
-    ministryId: '',
-    preferredContactMethod: 'Phone',
-    testimony: '',
-    consent: true,
-  });
-  const [memberResult, setMemberResult] = useState<string | null>(null);
-  const [memberError, setMemberError] = useState<string | null>(null);
-  const [memberLoading, setMemberLoading] = useState(false);
 
   const [contactForm, setContactForm] = useState({
     fullName: '',
@@ -221,6 +214,23 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    const handleRegisterDeepLink = () => {
+      if (
+        window.location.hash === '#join-church' ||
+        window.location.search.includes('register=1')
+      ) {
+        setConnectTab('member');
+        setTimeout(() => {
+          document.getElementById('connect')?.scrollIntoView({ behavior: 'smooth' });
+        }, 120);
+      }
+    };
+    handleRegisterDeepLink();
+    window.addEventListener('hashchange', handleRegisterDeepLink);
+    return () => window.removeEventListener('hashchange', handleRegisterDeepLink);
   }, []);
 
   useEffect(() => {
@@ -311,30 +321,6 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
       setVisitorError(err.message);
     } finally {
       setVisitorLoading(false);
-    }
-  };
-
-  const submitMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMemberLoading(true);
-    setMemberError(null);
-    try {
-      const res = await fetch('/api/public/members', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...memberForm,
-          fellowshipId: memberForm.fellowshipId ? Number(memberForm.fellowshipId) : null,
-          ministryId: memberForm.ministryId ? Number(memberForm.ministryId) : null,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Registration failed');
-      setMemberResult(json.memberNumber);
-    } catch (err: any) {
-      setMemberError(err.message);
-    } finally {
-      setMemberLoading(false);
     }
   };
 
@@ -485,6 +471,7 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
               </button>
               <a
                 href="#connect"
+                onClick={() => setConnectTab('member')}
                 className="hidden md:inline-flex items-center px-4 py-2 text-xs font-semibold bg-[#B4823E] hover:bg-[#9A6B2F] text-white transition-colors whitespace-nowrap shrink-0"
               >
                 Join Our Church
@@ -1816,23 +1803,23 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-            {/* Left: Segmented Forms */}
-            <div className="lg:col-span-7 bg-white border border-stone-200 p-6 sm:p-8">
-              <div className="flex flex-wrap gap-1 p-1 bg-[#F3EFE7] mb-6" role="tablist">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left: Join Our Church & Connect Forms */}
+            <div className="lg:col-span-8 space-y-4">
+              <div className="flex flex-wrap gap-1 p-1 bg-[#F3EFE7] border border-stone-200 no-print" role="tablist">
                 {[
+                  ['member', 'Join Our Church (Membership)'],
                   ['visitor', 'Plan a Visit (Visitor)'],
-                  ['member', 'Member Registration'],
                   ['contact', 'General Message'],
                 ].map(([key, label]) => (
                   <button
                     key={key}
                     type="button"
                     onClick={() => setConnectTab(key as any)}
-                    className={`flex-1 py-2 px-3 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                    className={`flex-1 py-2.5 px-3 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                       connectTab === key
-                        ? 'bg-[#1C1917] text-white'
-                        : 'text-stone-700 hover:text-[#1C1917]'
+                        ? 'bg-[#0F172A] text-white'
+                        : 'text-stone-700 hover:text-[#0F172A]'
                     }`}
                   >
                     {label}
@@ -1840,268 +1827,148 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
                 ))}
               </div>
 
-              {/* Visitor Form */}
-              {connectTab === 'visitor' && (
-                visitorResult ? (
-                  <div className="py-6 text-center space-y-3">
-                    <CheckCircle2 className="w-10 h-10 text-emerald-700 mx-auto" />
-                    <h3 className="font-serif text-xl font-medium">We Look Forward to Welcoming You</h3>
-                    <p className="text-sm text-stone-600">Your visit details have been recorded for our welcoming team.</p>
-                    <p className="font-mono text-sm bg-[#F3EFE7] px-3 py-1.5 inline-block">
-                      Visitor Ref: {visitorResult}
-                    </p>
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => setVisitorResult(null)}
-                        className="px-4 py-2 bg-[#1C1917] text-white text-xs cursor-pointer"
-                      >
-                        Register Another Visitor
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <form onSubmit={submitVisitor} className="space-y-4">
-                    {visitorError && <p className="text-xs text-red-700 bg-red-50 p-3">{visitorError}</p>}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Full name *</label>
-                        <input
-                          required
-                          value={visitorForm.fullName}
-                          onChange={(e) => setVisitorForm({ ...visitorForm, fullName: e.target.value })}
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Phone number *</label>
-                        <input
-                          required
-                          type="tel"
-                          value={visitorForm.phone}
-                          onChange={(e) => setVisitorForm({ ...visitorForm, phone: e.target.value })}
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Email (optional)</label>
-                        <input
-                          type="email"
-                          value={visitorForm.email}
-                          onChange={(e) => setVisitorForm({ ...visitorForm, email: e.target.value })}
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Area of residence</label>
-                        <input
-                          value={visitorForm.residence}
-                          onChange={(e) => setVisitorForm({ ...visitorForm, residence: e.target.value })}
-                          placeholder="e.g., Ogembo"
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Preferred visit date</label>
-                        <input
-                          type="date"
-                          value={visitorForm.preferredVisitDate}
-                          onChange={(e) => setVisitorForm({ ...visitorForm, preferredVisitDate: e.target.value })}
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Accompanying guests</label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={50}
-                          value={visitorForm.accompanyingCount}
-                          onChange={(e) => setVisitorForm({ ...visitorForm, accompanyingCount: Number(e.target.value) })}
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">How did you hear of us?</label>
-                        <input
-                          value={visitorForm.visitSource}
-                          onChange={(e) => setVisitorForm({ ...visitorForm, visitSource: e.target.value })}
-                          placeholder="Friend, family..."
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-stone-700 mb-1">Any assistance needed?</label>
-                      <textarea
-                        rows={2}
-                        value={visitorForm.assistanceRequest}
-                        onChange={(e) => setVisitorForm({ ...visitorForm, assistanceRequest: e.target.value })}
-                        placeholder="Directions, prayer, or pastoral welcome..."
-                        className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                      />
-                    </div>
-                    <label className="flex items-center gap-2 text-xs text-stone-600">
-                      <input
-                        type="checkbox"
-                        required
-                        checked={visitorForm.consent}
-                        onChange={(e) => setVisitorForm({ ...visitorForm, consent: e.target.checked })}
-                        className="accent-[#9A6B2F]"
-                      />
-                      <span>I consent to the GVCC welcoming team contacting me regarding my visit.</span>
-                    </label>
-                    <button
-                      type="submit"
-                      disabled={visitorLoading}
-                      className="w-full py-3 bg-[#9A6B2F] hover:bg-[#825824] text-white text-sm font-semibold cursor-pointer"
-                    >
-                      {visitorLoading ? 'Submitting...' : 'Plan My Visit'}
-                    </button>
-                  </form>
-                )
+              {/* Join Our Church Full Multi-Step Membership Portal */}
+              {connectTab === 'member' && (
+                <JoinChurchForm
+                  settings={settings}
+                  fellowships={data.fellowships || []}
+                  ministries={data.ministries || []}
+                  leaders={data.leaders || []}
+                />
               )}
 
-              {/* Member Registration Form */}
-              {connectTab === 'member' && (
-                memberResult ? (
-                  <div className="py-6 text-center space-y-3">
-                    <CheckCircle2 className="w-10 h-10 text-emerald-700 mx-auto" />
-                    <h3 className="font-serif text-xl font-medium">Member Registration Complete</h3>
-                    <p className="text-sm text-stone-600">Your unique GVCC Member Number has been generated:</p>
-                    <p className="font-mono text-base font-medium bg-[#F3EFE7] px-4 py-2 inline-block">
-                      {memberResult}
-                    </p>
-                    <div>
+              {/* Visitor Form */}
+              {connectTab === 'visitor' && (
+                <div className="bg-white border border-stone-200 p-6 sm:p-8">
+                  {visitorResult ? (
+                    <div className="py-6 text-center space-y-3">
+                      <CheckCircle2 className="w-10 h-10 text-emerald-700 mx-auto" />
+                      <h3 className="font-serif text-xl font-medium">We Look Forward to Welcoming You</h3>
+                      <p className="text-sm text-stone-600">Your visit details have been recorded for our welcoming team.</p>
+                      <p className="font-mono text-sm bg-[#F3EFE7] px-3 py-1.5 inline-block">
+                        Visitor Ref: {visitorResult}
+                      </p>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setVisitorResult(null)}
+                          className="px-4 py-2 bg-[#1C1917] text-white text-xs cursor-pointer"
+                        >
+                          Register Another Visitor
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <form onSubmit={submitVisitor} className="space-y-4">
+                      {visitorError && <p className="text-xs text-red-700 bg-red-50 p-3">{visitorError}</p>}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-stone-700 mb-1">Full name *</label>
+                          <input
+                            required
+                            value={visitorForm.fullName}
+                            onChange={(e) => setVisitorForm({ ...visitorForm, fullName: e.target.value })}
+                            className="w-full px-3 py-2.5 border border-stone-300 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-stone-700 mb-1">Phone number *</label>
+                          <input
+                            required
+                            type="tel"
+                            value={visitorForm.phone}
+                            onChange={(e) => setVisitorForm({ ...visitorForm, phone: e.target.value })}
+                            className="w-full px-3 py-2.5 border border-stone-300 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-stone-700 mb-1">Email (optional)</label>
+                          <input
+                            type="email"
+                            value={visitorForm.email}
+                            onChange={(e) => setVisitorForm({ ...visitorForm, email: e.target.value })}
+                            className="w-full px-3 py-2.5 border border-stone-300 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-stone-700 mb-1">Area of residence</label>
+                          <input
+                            value={visitorForm.residence}
+                            onChange={(e) => setVisitorForm({ ...visitorForm, residence: e.target.value })}
+                            placeholder="e.g., Ogembo"
+                            className="w-full px-3 py-2.5 border border-stone-300 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-stone-700 mb-1">Preferred visit date</label>
+                          <input
+                            type="date"
+                            value={visitorForm.preferredVisitDate}
+                            onChange={(e) => setVisitorForm({ ...visitorForm, preferredVisitDate: e.target.value })}
+                            className="w-full px-3 py-2.5 border border-stone-300 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-stone-700 mb-1">Accompanying guests</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={50}
+                            value={visitorForm.accompanyingCount}
+                            onChange={(e) => setVisitorForm({ ...visitorForm, accompanyingCount: Number(e.target.value) })}
+                            className="w-full px-3 py-2.5 border border-stone-300 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-stone-700 mb-1">How did you hear of us?</label>
+                          <input
+                            value={visitorForm.visitSource}
+                            onChange={(e) => setVisitorForm({ ...visitorForm, visitSource: e.target.value })}
+                            placeholder="Friend, family..."
+                            className="w-full px-3 py-2.5 border border-stone-300 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-stone-700 mb-1">Any assistance needed?</label>
+                        <textarea
+                          rows={2}
+                          value={visitorForm.assistanceRequest}
+                          onChange={(e) => setVisitorForm({ ...visitorForm, assistanceRequest: e.target.value })}
+                          placeholder="Directions, prayer, or pastoral welcome..."
+                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
+                        />
+                      </div>
+                      <label className="flex items-center gap-2 text-xs text-stone-600">
+                        <input
+                          type="checkbox"
+                          required
+                          checked={visitorForm.consent}
+                          onChange={(e) => setVisitorForm({ ...visitorForm, consent: e.target.checked })}
+                          className="accent-[#9A6B2F]"
+                        />
+                        <span>I consent to the GVCC welcoming team contacting me regarding my visit.</span>
+                      </label>
                       <button
-                        type="button"
-                        onClick={() => setMemberResult(null)}
-                        className="px-4 py-2 bg-[#1C1917] text-white text-xs cursor-pointer"
+                        type="submit"
+                        disabled={visitorLoading}
+                        className="w-full py-3 bg-[#9A6B2F] hover:bg-[#825824] text-white text-sm font-semibold cursor-pointer"
                       >
-                        Register Another Family Member
+                        {visitorLoading ? 'Submitting...' : 'Plan My Visit'}
                       </button>
-                    </div>
-                  </div>
-                ) : (
-                  <form onSubmit={submitMember} className="space-y-4">
-                    {memberError && <p className="text-xs text-red-700 bg-red-50 p-3">{memberError}</p>}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Full name *</label>
-                        <input
-                          required
-                          value={memberForm.fullName}
-                          onChange={(e) => setMemberForm({ ...memberForm, fullName: e.target.value })}
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Phone number *</label>
-                        <input
-                          required
-                          type="tel"
-                          value={memberForm.phone}
-                          onChange={(e) => setMemberForm({ ...memberForm, phone: e.target.value })}
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Email (optional)</label>
-                        <input
-                          type="email"
-                          value={memberForm.email}
-                          onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })}
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Town / Area</label>
-                        <input
-                          value={memberForm.location}
-                          onChange={(e) => setMemberForm({ ...memberForm, location: e.target.value })}
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Membership type</label>
-                        <select
-                          value={memberForm.membershipType}
-                          onChange={(e) => setMemberForm({ ...memberForm, membershipType: e.target.value })}
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        >
-                          <option>New member</option>
-                          <option>Existing member</option>
-                          <option>Transfer</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Preferred fellowship</label>
-                        <select
-                          value={memberForm.fellowshipId}
-                          onChange={(e) => setMemberForm({ ...memberForm, fellowshipId: e.target.value })}
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        >
-                          <option value="">Not sure yet</option>
-                          {data.fellowships.map((f) => (
-                            <option key={f.id} value={f.id}>{f.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Interested ministry</label>
-                        <select
-                          value={memberForm.ministryId}
-                          onChange={(e) => setMemberForm({ ...memberForm, ministryId: e.target.value })}
-                          className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                        >
-                          <option value="">None selected</option>
-                          {data.ministries.map((m) => (
-                            <option key={m.id} value={m.id}>{m.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-stone-700 mb-1">Short introduction or testimony (optional)</label>
-                      <textarea
-                        rows={2}
-                        value={memberForm.testimony}
-                        onChange={(e) => setMemberForm({ ...memberForm, testimony: e.target.value })}
-                        className="w-full px-3 py-2.5 border border-stone-300 text-sm"
-                      />
-                    </div>
-                    <label className="flex items-center gap-2 text-xs text-stone-600">
-                      <input
-                        type="checkbox"
-                        required
-                        checked={memberForm.consent}
-                        onChange={(e) => setMemberForm({ ...memberForm, consent: e.target.checked })}
-                        className="accent-[#9A6B2F]"
-                      />
-                      <span>I consent to GVCC maintaining my member record securely for church care and updates.</span>
-                    </label>
-                    <button
-                      type="submit"
-                      disabled={memberLoading}
-                      className="w-full py-3 bg-[#1C1917] hover:bg-stone-800 text-white text-sm font-semibold cursor-pointer"
-                    >
-                      {memberLoading ? 'Registering...' : 'Complete Member Registration'}
-                    </button>
-                  </form>
-                )
+                    </form>
+                  )}
+                </div>
               )}
 
               {/* General Contact Form */}
               {connectTab === 'contact' && (
-                contactResult ? (
+                <div className="bg-white border border-stone-200 p-6 sm:p-8">
+                {contactResult ? (
                   <div className="py-6 text-center space-y-3">
                     <CheckCircle2 className="w-10 h-10 text-emerald-700 mx-auto" />
                     <h3 className="font-serif text-xl font-medium">Message Sent to Church Office</h3>
@@ -2168,12 +2035,13 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
                       {contactLoading ? 'Sending...' : 'Send Message'}
                     </button>
                   </form>
-                )
+                )}
+                </div>
               )}
             </div>
 
             {/* Right: Direct Contact, WhatsApp & Ogembo Map */}
-            <div className="lg:col-span-5 space-y-6">
+            <div className="lg:col-span-4 space-y-6 no-print">
               <div className="bg-[#F3EFE7] border border-stone-200 p-6 sm:p-7 space-y-4">
                 <p className="text-xs uppercase tracking-[0.16em] text-[#9A6B2F] font-semibold">
                   Verified Church Contact
