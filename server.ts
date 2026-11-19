@@ -719,11 +719,11 @@ app.post('/api/ai/search-answer', async (req, res) => {
 // Confidential Management Passcode Unlock (Required for Administration Portal)
 app.post('/api/admin/passcode-login', async (req, res) => {
   try {
-    await ensureSeeded();
     const password = typeof req.body?.password === 'string' ? req.body.password.trim() : '';
     if (!verifyManagementPasscode(password)) {
       return res.status(401).json({ error: 'Incorrect management password. Access denied.' });
     }
+    await ensureSeeded();
     const appUser = await getOrCreateUser(
       'gvcc-management-portal',
       'management@gvcc.ogembo',
@@ -901,6 +901,20 @@ app.post('/api/admin/members/bulk-status', requireAuth, requireStaff, requirePer
     res.json({ updated: ids.length });
   } catch (error: any) {
     res.status(500).json({ error: 'Bulk update failed' });
+  }
+});
+
+app.delete('/api/admin/members/:id', requireAuth, requireStaff, requirePermission('members.archive'), async (req: AuthRequest, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: 'Invalid member ID' });
+    }
+    await db.delete(members).where(eq(members.id, id));
+    await logAudit(req.appUser!.uid, req.appUser!.email, 'member.delete', 'members', String(id));
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Failed to delete member record' });
   }
 });
 
@@ -1704,6 +1718,65 @@ app.get('/api/admin/giving', requireAuth, requireStaff, requirePermission('givin
   }
 });
 
+app.post('/api/admin/giving', requireAuth, requireStaff, requirePermission('giving.manage'), async (req: AuthRequest, res) => {
+  try {
+    const b = req.body || {};
+    const parsed = givingSchema.safeParse({
+      giverName: b.giverName || 'Anonymous',
+      phone: b.phone || null,
+      email: b.email || null,
+      givingCategory: b.givingCategory || 'Tithe',
+      givingMethod: b.givingMethod || 'M-Pesa',
+      amountKes:
+        b.amountKes === '' || b.amountKes === null || b.amountKes === undefined
+          ? null
+          : Number(b.amountKes),
+      transactionReference: b.transactionReference || null,
+      notes: b.notes || null,
+      consent: true,
+    });
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid giving record details' });
+    }
+    const d = parsed.data;
+    const total = await db.select({ value: count() }).from(givingRecords);
+    const referenceNumber = await generateReferenceNumber('GIV', Number(total[0]?.value ?? 0));
+    const status = ['Pending Verification', 'Verified', 'Pledge Recorded', 'Acknowledged'].includes(b.status)
+      ? b.status
+      : 'Verified';
+
+    const [created] = await db
+      .insert(givingRecords)
+      .values({
+        referenceNumber,
+        giverName: d.giverName?.trim() || 'Anonymous',
+        phone: d.phone?.trim() || null,
+        email: d.email?.trim() || null,
+        givingCategory: d.givingCategory,
+        givingMethod: d.givingMethod,
+        amountKes: d.amountKes ?? null,
+        transactionReference: d.transactionReference?.trim() || null,
+        notes: d.notes?.trim() || null,
+        status,
+        consent: true,
+      })
+      .returning();
+
+    await logAudit(
+      req.appUser!.uid,
+      req.appUser!.email,
+      'giving.create',
+      'giving_records',
+      String(created.id),
+      `${created.referenceNumber} · ${created.givingCategory}`
+    );
+    res.status(201).json(created);
+  } catch (error) {
+    console.error('Admin giving create failed:', error);
+    res.status(500).json({ error: 'Failed to record giving entry' });
+  }
+});
+
 app.patch('/api/admin/giving/:id', requireAuth, requireStaff, requirePermission('giving.manage'), async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
@@ -1898,24 +1971,34 @@ app.patch('/api/admin/assets/:id', requireAuth, requireStaff, requirePermission(
       return res.status(400).json({ error: 'Invalid asset ID' });
     }
     const b = req.body || {};
+    const parsed = assetSchema.partial().safeParse({
+      ...b,
+      quantity:
+        b.quantity !== undefined && b.quantity !== '' ? Number(b.quantity) : undefined,
+      estimatedValueKes:
+        b.estimatedValueKes === undefined
+          ? undefined
+          : b.estimatedValueKes === '' || b.estimatedValueKes === null
+            ? null
+            : Number(b.estimatedValueKes),
+    });
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid asset update details' });
+    }
+    const d = parsed.data;
     const [updated] = await db
       .update(churchAssets)
       .set({
-        assetName: b.assetName !== undefined ? String(b.assetName).trim() : undefined,
-        category: b.category !== undefined ? String(b.category).trim() : undefined,
-        quantity: b.quantity !== undefined ? Math.max(1, Number(b.quantity) || 1) : undefined,
-        serialNumber: b.serialNumber !== undefined ? (b.serialNumber ? String(b.serialNumber).trim() : null) : undefined,
-        acquisitionDate: b.acquisitionDate !== undefined ? (b.acquisitionDate ? String(b.acquisitionDate).trim() : null) : undefined,
-        estimatedValueKes:
-          b.estimatedValueKes !== undefined
-            ? b.estimatedValueKes === '' || b.estimatedValueKes === null
-              ? null
-              : Number(b.estimatedValueKes)
-            : undefined,
-        location: b.location !== undefined ? String(b.location).trim() : undefined,
-        custodianName: b.custodianName !== undefined ? (b.custodianName ? String(b.custodianName).trim() : null) : undefined,
-        condition: b.condition !== undefined ? String(b.condition) : undefined,
-        notes: b.notes !== undefined ? (b.notes ? String(b.notes).trim() : null) : undefined,
+        assetName: d.assetName !== undefined ? d.assetName.trim() : undefined,
+        category: d.category !== undefined ? d.category.trim() : undefined,
+        quantity: d.quantity !== undefined ? d.quantity : undefined,
+        serialNumber: d.serialNumber !== undefined ? (d.serialNumber ? d.serialNumber.trim() : null) : undefined,
+        acquisitionDate: d.acquisitionDate !== undefined ? (d.acquisitionDate ? d.acquisitionDate.trim() : null) : undefined,
+        estimatedValueKes: d.estimatedValueKes,
+        location: d.location !== undefined ? d.location.trim() : undefined,
+        custodianName: d.custodianName !== undefined ? (d.custodianName ? d.custodianName.trim() : null) : undefined,
+        condition: d.condition,
+        notes: d.notes !== undefined ? (d.notes ? d.notes.trim() : null) : undefined,
         updatedAt: new Date(),
       })
       .where(eq(churchAssets.id, id))

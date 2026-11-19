@@ -133,9 +133,87 @@ function validatePrayerCreate(
   return { allowed: true };
 }
 
+function validateChurchMemberCreate(
+  auth: MockAuth | null,
+  memberId: string,
+  data: Record<string, any>
+): ValidationResult {
+  if (!isAdmin(auth)) return { allowed: false, reason: 'PERMISSION_DENIED: admin role required' };
+  if (!isValidId(memberId)) return { allowed: false, reason: 'PERMISSION_DENIED: invalid member ID' };
+  const allowed = [
+    'memberNumber',
+    'fullName',
+    'phone',
+    'email',
+    'location',
+    'fellowshipGroup',
+    'membershipType',
+    'membershipStatus',
+    'registrationDate',
+    'notes',
+    'importedByUid',
+    'importSource',
+    'createdAt',
+    'updatedAt',
+  ];
+  const keys = Object.keys(data);
+  if (!allowed.every((k) => keys.includes(k)) || !keys.every((k) => allowed.includes(k))) {
+    return { allowed: false, reason: 'PERMISSION_DENIED: church_member keys mismatch' };
+  }
+  if (data.importedByUid !== auth!.uid) {
+    return { allowed: false, reason: 'PERMISSION_DENIED: importedByUid spoof' };
+  }
+  if (typeof data.fullName !== 'string' || data.fullName.length < 2 || data.fullName.length > 140) {
+    return { allowed: false, reason: 'PERMISSION_DENIED: fullName size bounds' };
+  }
+  if (data.createdAt !== REQUEST_TIME_MS || data.updatedAt !== REQUEST_TIME_MS) {
+    return { allowed: false, reason: 'PERMISSION_DENIED: timestamp must equal request.time' };
+  }
+  return { allowed: true };
+}
+
+function validateDirectoryMemberCreate(
+  auth: MockAuth | null,
+  memberId: string,
+  data: Record<string, any>
+): ValidationResult {
+  if (!isAdmin(auth)) return { allowed: false, reason: 'PERMISSION_DENIED: admin role required' };
+  if (!isValidId(memberId)) return { allowed: false, reason: 'PERMISSION_DENIED: invalid member ID' };
+  const allowed = [
+    'memberNumber',
+    'fullName',
+    'phone',
+    'email',
+    'location',
+    'fellowshipGroup',
+    'membershipType',
+    'membershipStatus',
+    'registrationDate',
+    'notes',
+    'createdByUid',
+    'createdAt',
+    'updatedAt',
+  ];
+  const keys = Object.keys(data);
+  if (!allowed.every((k) => keys.includes(k)) || !keys.every((k) => allowed.includes(k))) {
+    return { allowed: false, reason: 'PERMISSION_DENIED: directory member keys mismatch' };
+  }
+  if (data.createdByUid !== auth!.uid) {
+    return { allowed: false, reason: 'PERMISSION_DENIED: createdByUid spoof' };
+  }
+  if (typeof data.fullName !== 'string' || data.fullName.length < 2 || data.fullName.length > 140) {
+    return { allowed: false, reason: 'PERMISSION_DENIED: fullName size bounds' };
+  }
+  if (data.createdAt !== REQUEST_TIME_MS || data.updatedAt !== REQUEST_TIME_MS) {
+    return { allowed: false, reason: 'PERMISSION_DENIED: timestamp must equal request.time' };
+  }
+  return { allowed: true };
+}
+
 export function runDirtyDozenChecks() {
   const uidA: MockAuth = { uid: 'userA_123', email: 'memberA@example.com', email_verified: true };
   const uidB: MockAuth = { uid: 'userB_456', email: 'memberB@example.com', email_verified: true };
+  const adminAuth: MockAuth = { uid: 'admin_01', email: BOOTSTRAPPED_ADMIN_EMAIL, email_verified: true };
   const spoofedAdmin: MockAuth = { uid: 'attacker', email: BOOTSTRAPPED_ADMIN_EMAIL, email_verified: false };
 
   const checks: Array<{ name: string; res: ValidationResult }> = [
@@ -276,6 +354,82 @@ export function runDirtyDozenChecks() {
         followupRequested: false,
         consent: true,
         status: 'New',
+        createdAt: REQUEST_TIME_MS,
+        updatedAt: REQUEST_TIME_MS,
+      }),
+    },
+    {
+      name: '13. Non-Admin Attempt to Import Church Member PII',
+      res: validateChurchMemberCreate(uidA, 'mem_01', {
+        memberNumber: 'GVCC-2026-AB12CD',
+        fullName: 'Unauthorized Member',
+        phone: '0700000000',
+        email: '',
+        location: 'Ogembo',
+        fellowshipGroup: '',
+        membershipType: 'Existing member',
+        membershipStatus: 'Active member',
+        registrationDate: '2026-11-19',
+        notes: '',
+        importedByUid: uidA.uid,
+        importSource: 'csv_import',
+        createdAt: REQUEST_TIME_MS,
+        updatedAt: REQUEST_TIME_MS,
+      }),
+    },
+    {
+      name: '14. Admin Shadow Field & Spoofed UID on Church Member Import',
+      res: validateChurchMemberCreate(adminAuth, 'mem_02', {
+        memberNumber: 'GVCC-2026-AB12CD',
+        fullName: 'Test Member',
+        phone: '0700000000',
+        email: '',
+        location: 'Ogembo',
+        fellowshipGroup: '',
+        membershipType: 'Existing member',
+        membershipStatus: 'Active member',
+        registrationDate: '2026-11-19',
+        notes: '',
+        importedByUid: uidA.uid,
+        importSource: 'csv_import',
+        isSuperAdmin: true,
+        createdAt: REQUEST_TIME_MS,
+        updatedAt: REQUEST_TIME_MS,
+      }),
+    },
+    {
+      name: '15. Non-Admin Attempt to Create Directory Member in /members',
+      res: validateDirectoryMemberCreate(uidA, 'dir_01', {
+        memberNumber: 'GVCC-2026-XY78ZW',
+        fullName: 'Unauthorized Member',
+        phone: '0700000000',
+        email: '',
+        location: 'Ogembo',
+        fellowshipGroup: 'Ogembo Central Fellowship',
+        membershipType: 'Existing member',
+        membershipStatus: 'Active member',
+        registrationDate: '2026-11-19',
+        notes: '',
+        createdByUid: uidA.uid,
+        createdAt: REQUEST_TIME_MS,
+        updatedAt: REQUEST_TIME_MS,
+      }),
+    },
+    {
+      name: '16. Admin Shadow Field & Spoofed UID on /members Directory Create',
+      res: validateDirectoryMemberCreate(adminAuth, 'dir_02', {
+        memberNumber: 'GVCC-2026-XY78ZW',
+        fullName: 'Directory Member',
+        phone: '0700000000',
+        email: '',
+        location: 'Ogembo',
+        fellowshipGroup: 'Ogembo Central Fellowship',
+        membershipType: 'Existing member',
+        membershipStatus: 'Active member',
+        registrationDate: '2026-11-19',
+        notes: '',
+        createdByUid: uidA.uid,
+        isAdmin: true,
         createdAt: REQUEST_TIME_MS,
         updatedAt: REQUEST_TIME_MS,
       }),

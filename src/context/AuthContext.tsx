@@ -5,7 +5,13 @@ import {
   signInWithPopup,
   signOut as firebaseSignOut,
 } from 'firebase/auth';
-import { auth, googleAuthProvider } from '../lib/firebase';
+import {
+  auth,
+  clearWorkspaceAccessToken,
+  googleAuthProvider,
+  signInWithWorkspace as firebaseSignInWithWorkspace,
+  subscribeWorkspaceToken,
+} from '../lib/firebase';
 import { ensureUserProfile, UserFirestoreProfile } from '../lib/firestoreStore';
 
 const PORTAL_TOKEN_KEY = 'gvcc_portal_token';
@@ -26,12 +32,14 @@ interface AuthContextValue {
   firebaseUser: User | null;
   firestoreProfile: UserFirestoreProfile | null;
   staffProfile: StaffProfile | null;
+  workspaceAccessToken: string | null;
   portalUnlocked: boolean;
   loading: boolean;
   authError: string | null;
   unlockWithPasscode: (password: string) => Promise<void>;
   lockPortal: () => void;
   signInWithGoogle: () => Promise<void>;
+  signInWithWorkspace: (includeChatScopes?: boolean) => Promise<string>;
   signOut: () => Promise<void>;
   getToken: () => Promise<string | null>;
   authFetch: (url: string, options?: RequestInit) => Promise<Response>;
@@ -46,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [firestoreProfile, setFirestoreProfile] = useState<UserFirestoreProfile | null>(null);
   const [staffProfile, setStaffProfile] = useState<StaffProfile | null>(null);
+  const [workspaceAccessToken, setWorkspaceAccessToken] = useState<string | null>(null);
   const [portalUnlocked, setPortalUnlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -132,6 +141,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
+    const unsubToken = subscribeWorkspaceToken((token) => {
+      if (mounted) setWorkspaceAccessToken(token);
+    });
+
     const unsub = onAuthStateChanged(auth, (user) => {
       if (!mounted) return;
       setFirebaseUser(user);
@@ -143,6 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     return () => {
       mounted = false;
+      unsubToken();
       unsub();
     };
   }, [syncPortalTokenSession, syncProfile, syncFirestoreUser]);
@@ -185,8 +199,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInWithWorkspace = async (includeChatScopes = true): Promise<string> => {
+    setAuthError(null);
+    try {
+      const { user, accessToken } = await firebaseSignInWithWorkspace(includeChatScopes);
+      setWorkspaceAccessToken(accessToken);
+      await syncProfile(user);
+      return accessToken;
+    } catch (err: any) {
+      setAuthError(err.message || 'Google Workspace sign-in was cancelled or failed.');
+      throw err;
+    }
+  };
+
   const signOut = async () => {
     sessionStorage.removeItem(PORTAL_TOKEN_KEY);
+    clearWorkspaceAccessToken();
+    setWorkspaceAccessToken(null);
     setPortalUnlocked(false);
     setAuthError(null);
     await firebaseSignOut(auth);
@@ -238,12 +267,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         firebaseUser,
         firestoreProfile,
         staffProfile,
+        workspaceAccessToken,
         portalUnlocked,
         loading,
         authError,
         unlockWithPasscode,
         lockPortal,
         signInWithGoogle,
+        signInWithWorkspace,
         signOut,
         getToken,
         authFetch,

@@ -273,6 +273,226 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "ChurchMember": {
+      "title": "ChurchMember",
+      "description": "Church member record imported via CSV or registered by church management in Firestore church_members collection.",
+      "type": "object",
+      "properties": {
+        "memberNumber": {
+          "type": "string",
+          "description": "Unique GVCC member identifier (e.g., GVCC-2026-AB12CD).",
+          "minLength": 6,
+          "maxLength": 40,
+          "pattern": "^GVCC-[0-9]{4}-[A-Z0-9]{4,12}$"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Member full name.",
+          "minLength": 2,
+          "maxLength": 140
+        },
+        "phone": {
+          "type": "string",
+          "description": "Primary contact phone number (PII).",
+          "minLength": 4,
+          "maxLength": 40
+        },
+        "email": {
+          "type": "string",
+          "description": "Optional member email address (PII).",
+          "minLength": 0,
+          "maxLength": 160
+        },
+        "location": {
+          "type": "string",
+          "description": "Residence, area, or village.",
+          "minLength": 0,
+          "maxLength": 140
+        },
+        "fellowshipGroup": {
+          "type": "string",
+          "description": "Assigned church fellowship group.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "membershipType": {
+          "type": "string",
+          "description": "Category of church membership.",
+          "enum": ["Existing member", "New member", "Youth", "Visitor convert", "Transfer"]
+        },
+        "membershipStatus": {
+          "type": "string",
+          "description": "Current pastoral membership status.",
+          "enum": [
+            "New registration",
+            "Pending verification",
+            "Contacted",
+            "Orientation",
+            "Active member",
+            "Inactive",
+            "Transferred",
+            "Archived"
+          ]
+        },
+        "registrationDate": {
+          "type": "string",
+          "description": "Date member joined or was registered (YYYY-MM-DD).",
+          "minLength": 4,
+          "maxLength": 32
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional pastoral or import notes.",
+          "minLength": 0,
+          "maxLength": 1000
+        },
+        "importedByUid": {
+          "type": "string",
+          "description": "Verified Firebase Auth UID of the administrator who imported the record.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "importSource": {
+          "type": "string",
+          "description": "Origin of the Firestore member document.",
+          "enum": ["csv_import", "manual_admin"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "memberNumber",
+        "fullName",
+        "phone",
+        "email",
+        "location",
+        "fellowshipGroup",
+        "membershipType",
+        "membershipStatus",
+        "registrationDate",
+        "notes",
+        "importedByUid",
+        "importSource",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DirectoryMember": {
+      "title": "DirectoryMember",
+      "description": "Searchable church member record stored in the Firestore members collection and managed by verified administrators.",
+      "type": "object",
+      "properties": {
+        "memberNumber": {
+          "type": "string",
+          "description": "Unique GVCC member identifier (e.g., GVCC-2026-AB12CD).",
+          "minLength": 6,
+          "maxLength": 40,
+          "pattern": "^GVCC-[0-9]{4}-[A-Z0-9]{4,12}$"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Member full name.",
+          "minLength": 2,
+          "maxLength": 140
+        },
+        "phone": {
+          "type": "string",
+          "description": "Primary contact phone number (PII).",
+          "minLength": 4,
+          "maxLength": 40
+        },
+        "email": {
+          "type": "string",
+          "description": "Optional member email address (PII).",
+          "minLength": 0,
+          "maxLength": 160
+        },
+        "location": {
+          "type": "string",
+          "description": "Residence, area, or village.",
+          "minLength": 0,
+          "maxLength": 140
+        },
+        "fellowshipGroup": {
+          "type": "string",
+          "description": "Assigned church fellowship group.",
+          "minLength": 0,
+          "maxLength": 120
+        },
+        "membershipType": {
+          "type": "string",
+          "description": "Category of church membership.",
+          "enum": ["Existing member", "New member", "Youth", "Visitor convert", "Transfer"]
+        },
+        "membershipStatus": {
+          "type": "string",
+          "description": "Current pastoral membership status.",
+          "enum": [
+            "New registration",
+            "Pending verification",
+            "Contacted",
+            "Orientation",
+            "Active member",
+            "Inactive",
+            "Transferred",
+            "Archived"
+          ]
+        },
+        "registrationDate": {
+          "type": "string",
+          "description": "Date member joined or was registered (YYYY-MM-DD).",
+          "minLength": 4,
+          "maxLength": 32
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional pastoral notes.",
+          "minLength": 0,
+          "maxLength": 1000
+        },
+        "createdByUid": {
+          "type": "string",
+          "description": "Verified Firebase Auth UID of the administrator who created the record.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "memberNumber",
+        "fullName",
+        "phone",
+        "email",
+        "location",
+        "fellowshipGroup",
+        "membershipType",
+        "membershipStatus",
+        "registrationDate",
+        "notes",
+        "createdByUid",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -295,6 +515,14 @@
     "/prayer_requests/{requestId}": {
       "schema": { "$ref": "#/entities/PrayerRequest" },
       "description": "Owner-isolated user-submitted prayer requests with optional private contact details."
+    },
+    "/church_members/{memberId}": {
+      "schema": { "$ref": "#/entities/ChurchMember" },
+      "description": "Confidential GVCC church membership directory bulk-imported or managed by verified administrators."
+    },
+    "/members/{memberId}": {
+      "schema": { "$ref": "#/entities/DirectoryMember" },
+      "description": "Confidential searchable GVCC church member directory stored in the Firestore members collection."
     }
   }
 }

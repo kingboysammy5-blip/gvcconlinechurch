@@ -35,10 +35,13 @@ service cloud.firestore {
       return isVerifiedUser() && request.auth.uid == userId;
     }
 
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'kingboysammy5@gmail.com';
+    }
+
     function isAdmin() {
-      return isVerifiedUser() && (
-        request.auth.token.email == 'kingboysammy5@gmail.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
 
@@ -121,6 +124,63 @@ service cloud.firestore {
         && data.followupRequested is bool
         && data.consent is bool
         && data.status in ['New', 'In Prayer', 'Answered', 'Archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidChurchMember(data, actorUid) {
+      return data.keys().hasAll([
+          'memberNumber', 'fullName', 'phone', 'email', 'location',
+          'fellowshipGroup', 'membershipType', 'membershipStatus',
+          'registrationDate', 'notes', 'importedByUid', 'importSource',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'memberNumber', 'fullName', 'phone', 'email', 'location',
+          'fellowshipGroup', 'membershipType', 'membershipStatus',
+          'registrationDate', 'notes', 'importedByUid', 'importSource',
+          'createdAt', 'updatedAt'
+        ])
+        && data.memberNumber is string && data.memberNumber.size() >= 6 && data.memberNumber.size() <= 40 && data.memberNumber.matches('^GVCC-[0-9]{4}-[A-Z0-9]{4,12}$')
+        && data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 140
+        && data.phone is string && data.phone.size() >= 4 && data.phone.size() <= 40
+        && data.email is string && data.email.size() <= 160
+        && data.location is string && data.location.size() <= 140
+        && data.fellowshipGroup is string && data.fellowshipGroup.size() <= 120
+        && data.membershipType in ['Existing member', 'New member', 'Youth', 'Visitor convert', 'Transfer']
+        && data.membershipStatus in ['New registration', 'Pending verification', 'Contacted', 'Orientation', 'Active member', 'Inactive', 'Transferred', 'Archived']
+        && data.registrationDate is string && data.registrationDate.size() >= 4 && data.registrationDate.size() <= 32
+        && data.notes is string && data.notes.size() <= 1000
+        && data.importedByUid is string && data.importedByUid.size() >= 1 && data.importedByUid.size() <= 128 && data.importedByUid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.importedByUid == actorUid
+        && data.importSource in ['csv_import', 'manual_admin']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidDirectoryMember(data, actorUid) {
+      return data.keys().hasAll([
+          'memberNumber', 'fullName', 'phone', 'email', 'location',
+          'fellowshipGroup', 'membershipType', 'membershipStatus',
+          'registrationDate', 'notes', 'createdByUid', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'memberNumber', 'fullName', 'phone', 'email', 'location',
+          'fellowshipGroup', 'membershipType', 'membershipStatus',
+          'registrationDate', 'notes', 'createdByUid', 'createdAt', 'updatedAt'
+        ])
+        && data.memberNumber is string && data.memberNumber.size() >= 6 && data.memberNumber.size() <= 40 && data.memberNumber.matches('^GVCC-[0-9]{4}-[A-Z0-9]{4,12}$')
+        && data.fullName is string && data.fullName.size() >= 2 && data.fullName.size() <= 140
+        && data.phone is string && data.phone.size() >= 4 && data.phone.size() <= 40
+        && data.email is string && data.email.size() <= 160
+        && data.location is string && data.location.size() <= 140
+        && data.fellowshipGroup is string && data.fellowshipGroup.size() <= 120
+        && data.membershipType in ['Existing member', 'New member', 'Youth', 'Visitor convert', 'Transfer']
+        && data.membershipStatus in ['New registration', 'Pending verification', 'Contacted', 'Orientation', 'Active member', 'Inactive', 'Transferred', 'Archived']
+        && data.registrationDate is string && data.registrationDate.size() >= 4 && data.registrationDate.size() <= 32
+        && data.notes is string && data.notes.size() <= 1000
+        && data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128 && data.createdByUid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.createdByUid == actorUid
         && data.createdAt is timestamp
         && data.updatedAt is timestamp;
     }
@@ -258,8 +318,8 @@ service cloud.firestore {
       allow get: if isValidId(requestId)
         && (isAdmin() || (isVerifiedUser() && existing().uid == request.auth.uid));
 
-      allow list: if isVerifiedUser()
-        && (resource.data.uid == request.auth.uid || isAdmin());
+      allow list: if isBootstrappedAdmin()
+        || (isVerifiedUser() && resource.data.uid == request.auth.uid);
 
       allow create: if isValidId(requestId)
         && isVerifiedUser()
@@ -286,6 +346,72 @@ service cloud.firestore {
 
       allow delete: if isValidId(requestId)
         && (isAdmin() || (isVerifiedUser() && existing().uid == request.auth.uid));
+    }
+
+    // -------------------------------------------------------------------------
+    // /church_members/{memberId} - Confidential Admin-Only Church Members
+    // -------------------------------------------------------------------------
+    match /church_members/{memberId} {
+      allow get: if isValidId(memberId) && isAdmin();
+
+      allow list: if isBootstrappedAdmin()
+        || (isVerifiedUser() && resource.data.importedByUid == request.auth.uid);
+
+      allow create: if isValidId(memberId)
+        && isVerifiedUser()
+        && isAdmin()
+        && isValidChurchMember(incoming(), request.auth.uid)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(memberId)
+        && isVerifiedUser()
+        && isAdmin()
+        && isValidChurchMember(incoming(), existing().importedByUid)
+        && incoming().importedByUid == existing().importedByUid
+        && incoming().memberNumber == existing().memberNumber
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'fullName', 'phone', 'email', 'location',
+          'fellowshipGroup', 'membershipType', 'membershipStatus',
+          'registrationDate', 'notes', 'importSource', 'updatedAt'
+        ]);
+
+      allow delete: if isValidId(memberId) && isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // /members/{memberId} - Confidential Admin-Only Searchable Member Directory
+    // -------------------------------------------------------------------------
+    match /members/{memberId} {
+      allow get: if isValidId(memberId) && isAdmin();
+
+      allow list: if isBootstrappedAdmin()
+        || (isVerifiedUser() && resource.data.createdByUid == request.auth.uid);
+
+      allow create: if isValidId(memberId)
+        && isVerifiedUser()
+        && isAdmin()
+        && isValidDirectoryMember(incoming(), request.auth.uid)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(memberId)
+        && isVerifiedUser()
+        && isAdmin()
+        && isValidDirectoryMember(incoming(), existing().createdByUid)
+        && incoming().createdByUid == existing().createdByUid
+        && incoming().memberNumber == existing().memberNumber
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'fullName', 'phone', 'email', 'location',
+          'fellowshipGroup', 'membershipType', 'membershipStatus',
+          'registrationDate', 'notes', 'updatedAt'
+        ]);
+
+      allow delete: if isValidId(memberId) && isAdmin();
     }
   }
 }

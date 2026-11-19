@@ -473,8 +473,16 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
               </a>
             </nav>
 
-            {/* Zone 3: 1 Primary CTA + mobile toggle */}
-            <div className="flex items-center gap-3 shrink-0">
+            {/* Zone 3: Primary CTA + Confidential Admin Portal + mobile toggle */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={onOpenAdmin}
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-[#E2C28B] border border-white/25 hover:bg-white/10 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                Admin Portal
+              </button>
               <a
                 href="#connect"
                 className="hidden md:inline-flex items-center px-4 py-2 text-xs font-semibold bg-[#B4823E] hover:bg-[#9A6B2F] text-white transition-colors whitespace-nowrap shrink-0"

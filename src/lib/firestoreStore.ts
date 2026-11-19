@@ -13,6 +13,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from './firebase';
 
@@ -460,4 +461,505 @@ export async function deleteUserPrayerRequest(user: User, requestId: string): Pr
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }
+}
+
+export const CHURCH_MEMBER_TYPES = [
+  'Existing member',
+  'New member',
+  'Youth',
+  'Visitor convert',
+  'Transfer',
+] as const;
+
+export const CHURCH_MEMBER_STATUSES = [
+  'New registration',
+  'Pending verification',
+  'Contacted',
+  'Orientation',
+  'Active member',
+  'Inactive',
+  'Transferred',
+  'Archived',
+] as const;
+
+export type ChurchMemberType = (typeof CHURCH_MEMBER_TYPES)[number];
+export type ChurchMemberStatus = (typeof CHURCH_MEMBER_STATUSES)[number];
+
+export interface CsvMemberImportRow {
+  memberNumber?: string;
+  fullName: string;
+  phone: string;
+  email?: string;
+  location?: string;
+  fellowshipGroup?: string;
+  membershipType?: string;
+  membershipStatus?: string;
+  registrationDate?: string;
+  notes?: string;
+}
+
+export interface ChurchMemberFirestoreRecord {
+  id: string;
+  memberNumber: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  location: string;
+  fellowshipGroup: string;
+  membershipType: ChurchMemberType;
+  membershipStatus: ChurchMemberStatus;
+  registrationDate: string;
+  notes: string;
+  importedByUid: string;
+  importSource: 'csv_import' | 'manual_admin';
+  createdAtMs: number;
+}
+
+export function normalizeChurchMemberType(value?: string | null): ChurchMemberType {
+  const clean = (value || '').trim().toLowerCase();
+  const match = CHURCH_MEMBER_TYPES.find((t) => t.toLowerCase() === clean);
+  if (match) return match;
+  if (clean.includes('new')) return 'New member';
+  if (clean.includes('youth')) return 'Youth';
+  if (clean.includes('visitor') || clean.includes('convert')) return 'Visitor convert';
+  if (clean.includes('transfer')) return 'Transfer';
+  return 'Existing member';
+}
+
+export function normalizeChurchMemberStatus(value?: string | null): ChurchMemberStatus {
+  const clean = (value || '').trim().toLowerCase();
+  const match = CHURCH_MEMBER_STATUSES.find((s) => s.toLowerCase() === clean);
+  if (match) return match;
+  if (clean.includes('pending')) return 'Pending verification';
+  if (clean.includes('contact')) return 'Contacted';
+  if (clean.includes('orient')) return 'Orientation';
+  if (clean.includes('new')) return 'New registration';
+  if (clean.includes('inactive')) return 'Inactive';
+  if (clean.includes('transfer')) return 'Transferred';
+  if (clean.includes('archiv')) return 'Archived';
+  return 'Active member';
+}
+
+export function generateFirestoreMemberNumber(year?: number): string {
+  const y = year && year >= 1900 && year <= 2100 ? year : new Date().getFullYear();
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let suffix = '';
+  for (let i = 0; i < 6; i += 1) {
+    suffix += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return `GVCC-${y}-${suffix}`;
+}
+
+function normalizeMemberNumber(raw?: string | null, year?: number): string {
+  const clean = (raw || '').trim().toUpperCase();
+  if (/^GVCC-[0-9]{4}-[A-Z0-9]{4,12}$/.test(clean) && clean.length >= 6 && clean.length <= 40) {
+    return clean;
+  }
+  return generateFirestoreMemberNumber(year);
+}
+
+export async function bulkImportChurchMembersToFirestore(
+  user: User,
+  rows: CsvMemberImportRow[],
+  onProgress?: (done: number, total: number) => void
+): Promise<{ importedCount: number; memberNumbers: string[] }> {
+  if (!user.emailVerified) {
+    throw new Error('Verified Google Admin account is required to write to Firestore.');
+  }
+  if (!rows.length) {
+    throw new Error('No valid member rows provided for import.');
+  }
+
+  const validRows = rows.filter(
+    (r) => clampString(r.fullName, 140, '').length >= 2 && clampString(r.phone, 40, '').length >= 4
+  );
+  if (!validRows.length) {
+    throw new Error('No valid member rows (Full Name >= 2 chars and Phone >= 4 chars) provided for import.');
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const currentYear = new Date().getFullYear();
+  const collectionPath = 'church_members';
+  const BATCH_SIZE = 200;
+  const createdNumbers: string[] = [];
+
+  for (let offset = 0; offset < validRows.length; offset += BATCH_SIZE) {
+    const chunk = validRows.slice(offset, offset + BATCH_SIZE);
+    const batch = writeBatch(db);
+
+    for (const row of chunk) {
+      const fullName = clampString(row.fullName, 140, '');
+      const phone = clampString(row.phone, 40, '');
+      const memberNumber = normalizeMemberNumber(row.memberNumber, currentYear);
+      const regDateRaw = clampString(row.registrationDate, 32, today);
+      const safeRegDate = regDateRaw.length >= 4 ? regDateRaw : today;
+
+      const docRef = doc(collection(db, collectionPath));
+      batch.set(docRef, {
+        memberNumber,
+        fullName,
+        phone,
+        email: clampOptionalString(row.email, 160),
+        location: clampOptionalString(row.location, 140),
+        fellowshipGroup: clampOptionalString(row.fellowshipGroup, 120),
+        membershipType: normalizeChurchMemberType(row.membershipType),
+        membershipStatus: normalizeChurchMemberStatus(row.membershipStatus),
+        registrationDate: safeRegDate,
+        notes: clampOptionalString(row.notes, 1000),
+        importedByUid: user.uid,
+        importSource: 'csv_import',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      createdNumbers.push(memberNumber);
+    }
+
+    try {
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, collectionPath);
+    }
+
+    if (onProgress) {
+      onProgress(Math.min(offset + chunk.length, validRows.length), validRows.length);
+    }
+  }
+
+  return {
+    importedCount: createdNumbers.length,
+    memberNumbers: createdNumbers,
+  };
+}
+
+export function subscribeImportedChurchMembers(
+  user: User,
+  onData: (items: ChurchMemberFirestoreRecord[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  if (!user || !user.emailVerified) {
+    return () => {};
+  }
+
+  const collectionPath = 'church_members';
+  const isBootstrapped = user.email === 'kingboysammy5@gmail.com';
+  const q = isBootstrapped
+    ? query(collection(db, collectionPath), limit(200))
+    : query(
+        collection(db, collectionPath),
+        where('importedByUid', '==', user.uid),
+        limit(200)
+      );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items: ChurchMemberFirestoreRecord[] = snapshot.docs
+        .map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            memberNumber: String(data.memberNumber || ''),
+            fullName: String(data.fullName || ''),
+            phone: String(data.phone || ''),
+            email: String(data.email || ''),
+            location: String(data.location || ''),
+            fellowshipGroup: String(data.fellowshipGroup || ''),
+            membershipType: normalizeChurchMemberType(data.membershipType),
+            membershipStatus: normalizeChurchMemberStatus(data.membershipStatus),
+            registrationDate: String(data.registrationDate || ''),
+            notes: String(data.notes || ''),
+            importedByUid: String(data.importedByUid || ''),
+            importSource: (data.importSource === 'manual_admin' ? 'manual_admin' : 'csv_import') as
+              | 'csv_import'
+              | 'manual_admin',
+            createdAtMs: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
+          };
+        })
+        .sort((a, b) => b.createdAtMs - a.createdAtMs);
+      onData(items);
+    },
+    (error) => {
+      try {
+        handleFirestoreError(error, OperationType.LIST, collectionPath);
+      } catch (wrapped) {
+        if (onError && wrapped instanceof Error) {
+          onError(wrapped);
+        }
+      }
+    }
+  );
+}
+
+export async function deleteImportedChurchMember(user: User, memberId: string): Promise<void> {
+  if (!user.emailVerified) {
+    throw new Error('Verified Google Admin account is required.');
+  }
+  const path = `church_members/${memberId}`;
+  try {
+    await deleteDoc(doc(db, 'church_members', memberId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export interface FirestoreDirectoryMember {
+  id: string;
+  memberNumber: string;
+  fullName: string;
+  phone: string;
+  email: string;
+  location: string;
+  fellowshipGroup: string;
+  membershipType: ChurchMemberType;
+  membershipStatus: ChurchMemberStatus;
+  registrationDate: string;
+  notes: string;
+  createdByUid: string;
+  createdAtMs: number;
+}
+
+export interface DirectoryMemberInput {
+  memberNumber?: string;
+  fullName: string;
+  phone: string;
+  email?: string;
+  location?: string;
+  fellowshipGroup?: string;
+  membershipType?: string;
+  membershipStatus?: string;
+  registrationDate?: string;
+  notes?: string;
+}
+
+export function subscribeFirestoreMembers(
+  user: User,
+  onData: (items: FirestoreDirectoryMember[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  if (!user || !user.emailVerified) {
+    return () => {};
+  }
+
+  const collectionPath = 'members';
+  const isBootstrapped = user.email === 'kingboysammy5@gmail.com';
+  const q = isBootstrapped
+    ? query(collection(db, collectionPath), limit(300))
+    : query(
+        collection(db, collectionPath),
+        where('createdByUid', '==', user.uid),
+        limit(300)
+      );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items: FirestoreDirectoryMember[] = snapshot.docs
+        .map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            memberNumber: String(data.memberNumber || ''),
+            fullName: String(data.fullName || ''),
+            phone: String(data.phone || ''),
+            email: String(data.email || ''),
+            location: String(data.location || ''),
+            fellowshipGroup: String(data.fellowshipGroup || ''),
+            membershipType: normalizeChurchMemberType(data.membershipType),
+            membershipStatus: normalizeChurchMemberStatus(data.membershipStatus),
+            registrationDate: String(data.registrationDate || ''),
+            notes: String(data.notes || ''),
+            createdByUid: String(data.createdByUid || ''),
+            createdAtMs: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
+          };
+        })
+        .sort((a, b) => b.createdAtMs - a.createdAtMs);
+      onData(items);
+    },
+    (error) => {
+      try {
+        handleFirestoreError(error, OperationType.LIST, collectionPath);
+      } catch (wrapped) {
+        if (onError && wrapped instanceof Error) {
+          onError(wrapped);
+        }
+      }
+    }
+  );
+}
+
+export async function createFirestoreDirectoryMember(
+  user: User,
+  input: DirectoryMemberInput
+): Promise<{ id: string; memberNumber: string }> {
+  if (!user.emailVerified) {
+    throw new Error('Verified Google Admin account is required.');
+  }
+
+  const fullName = clampString(input.fullName, 140, '');
+  const phone = clampString(input.phone, 40, '');
+  if (fullName.length < 2) {
+    throw new Error('Member full name must be at least 2 characters.');
+  }
+  if (phone.length < 4) {
+    throw new Error('Phone number must be at least 4 characters.');
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const memberNumber = normalizeMemberNumber(input.memberNumber, new Date().getFullYear());
+  const regDateRaw = clampString(input.registrationDate, 32, today);
+  const collectionPath = 'members';
+
+  try {
+    const ref = await addDoc(collection(db, collectionPath), {
+      memberNumber,
+      fullName,
+      phone,
+      email: clampOptionalString(input.email, 160),
+      location: clampOptionalString(input.location, 140),
+      fellowshipGroup: clampOptionalString(input.fellowshipGroup, 120),
+      membershipType: normalizeChurchMemberType(input.membershipType),
+      membershipStatus: normalizeChurchMemberStatus(input.membershipStatus),
+      registrationDate: regDateRaw.length >= 4 ? regDateRaw : today,
+      notes: clampOptionalString(input.notes, 1000),
+      createdByUid: user.uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return { id: ref.id, memberNumber };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, collectionPath);
+  }
+}
+
+export async function updateFirestoreDirectoryMember(
+  user: User,
+  memberId: string,
+  updates: {
+    fullName?: string;
+    phone?: string;
+    email?: string;
+    location?: string;
+    fellowshipGroup?: string;
+    membershipType?: string;
+    membershipStatus?: string;
+    registrationDate?: string;
+    notes?: string;
+  }
+): Promise<void> {
+  if (!user.emailVerified) {
+    throw new Error('Verified Google Admin account is required.');
+  }
+
+  const path = `members/${memberId}`;
+  const payload: Record<string, unknown> = {
+    updatedAt: serverTimestamp(),
+  };
+
+  if (updates.fullName !== undefined) {
+    const clean = clampString(updates.fullName, 140, '');
+    if (clean.length < 2) throw new Error('Full name must be at least 2 characters.');
+    payload.fullName = clean;
+  }
+  if (updates.phone !== undefined) {
+    const clean = clampString(updates.phone, 40, '');
+    if (clean.length < 4) throw new Error('Phone number must be at least 4 characters.');
+    payload.phone = clean;
+  }
+  if (updates.email !== undefined) {
+    payload.email = clampOptionalString(updates.email, 160);
+  }
+  if (updates.location !== undefined) {
+    payload.location = clampOptionalString(updates.location, 140);
+  }
+  if (updates.fellowshipGroup !== undefined) {
+    payload.fellowshipGroup = clampOptionalString(updates.fellowshipGroup, 120);
+  }
+  if (updates.membershipType !== undefined) {
+    payload.membershipType = normalizeChurchMemberType(updates.membershipType);
+  }
+  if (updates.membershipStatus !== undefined) {
+    payload.membershipStatus = normalizeChurchMemberStatus(updates.membershipStatus);
+  }
+  if (updates.registrationDate !== undefined) {
+    const reg = clampString(updates.registrationDate, 32, new Date().toISOString().slice(0, 10));
+    payload.registrationDate = reg.length >= 4 ? reg : new Date().toISOString().slice(0, 10);
+  }
+  if (updates.notes !== undefined) {
+    payload.notes = clampOptionalString(updates.notes, 1000);
+  }
+
+  try {
+    await updateDoc(doc(db, 'members', memberId), payload);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function deleteFirestoreDirectoryMember(user: User, memberId: string): Promise<void> {
+  if (!user.emailVerified) {
+    throw new Error('Verified Google Admin account is required.');
+  }
+  const path = `members/${memberId}`;
+  try {
+    await deleteDoc(doc(db, 'members', memberId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export async function syncRecordsToFirestoreMembersCollection(
+  user: User,
+  rows: DirectoryMemberInput[]
+): Promise<number> {
+  if (!user.emailVerified) {
+    throw new Error('Verified Google Admin account is required.');
+  }
+  const validRows = rows.filter(
+    (r) => clampString(r.fullName, 140, '').length >= 2 && clampString(r.phone, 40, '').length >= 4
+  );
+  if (!validRows.length) return 0;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const currentYear = new Date().getFullYear();
+  const collectionPath = 'members';
+  const BATCH_SIZE = 200;
+  let synced = 0;
+
+  for (let offset = 0; offset < validRows.length; offset += BATCH_SIZE) {
+    const chunk = validRows.slice(offset, offset + BATCH_SIZE);
+    const batch = writeBatch(db);
+
+    for (const row of chunk) {
+      const fullName = clampString(row.fullName, 140, '');
+      const phone = clampString(row.phone, 40, '');
+      const memberNumber = normalizeMemberNumber(row.memberNumber, currentYear);
+      const regDateRaw = clampString(row.registrationDate, 32, today);
+
+      const ref = doc(collection(db, collectionPath));
+      batch.set(ref, {
+        memberNumber,
+        fullName,
+        phone,
+        email: clampOptionalString(row.email, 160),
+        location: clampOptionalString(row.location, 140),
+        fellowshipGroup: clampOptionalString(row.fellowshipGroup, 120),
+        membershipType: normalizeChurchMemberType(row.membershipType),
+        membershipStatus: normalizeChurchMemberStatus(row.membershipStatus),
+        registrationDate: regDateRaw.length >= 4 ? regDateRaw : today,
+        notes: clampOptionalString(row.notes, 1000),
+        createdByUid: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      synced += 1;
+    }
+
+    try {
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, collectionPath);
+    }
+  }
+
+  return synced;
 }

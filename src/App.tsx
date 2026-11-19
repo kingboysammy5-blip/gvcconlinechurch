@@ -69,6 +69,9 @@ function ChurchPlatformApp() {
   }, [view]);
 
   const openAdmin = () => {
+    if (window.location.hash !== '#admin') {
+      history.pushState(null, '', '#admin');
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setView('admin');
   };

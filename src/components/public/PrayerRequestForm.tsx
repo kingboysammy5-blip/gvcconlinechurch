@@ -116,33 +116,31 @@ export const PrayerRequestForm: React.FC<PrayerRequestFormProps> = ({
       const isPublic =
         form.privacyLevel === 'public_board' || form.privacyLevel === 'public_testimony';
 
-      // Mirror public board requests to the GVCC API so community intercessors see them too
-      if (isPublic) {
-        try {
-          const apiRes = await fetch('/api/public/prayers', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              requesterName:
-                form.requesterName.trim() ||
-                firestoreProfile?.displayName ||
-                firebaseUser.displayName ||
-                'Anonymous',
-              phone: form.phone.trim() || null,
-              email: form.email.trim() || null,
-              category: form.category,
-              requestContent: trimmedContent,
-              privacyLevel: form.privacyLevel,
-              followupRequested: form.followupRequested,
-              consent: true,
-            }),
-          });
-          if (apiRes.ok && onPublicBoardSubmitted) {
-            await onPublicBoardSubmitted();
-          }
-        } catch {
-          // Firestore record is already saved cleanly
+      // Sync to the GVCC Administration & Prayer Board queue (confidential requests remain hidden publicly)
+      try {
+        const apiRes = await fetch('/api/public/prayers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requesterName:
+              form.requesterName.trim() ||
+              firestoreProfile?.displayName ||
+              firebaseUser.displayName ||
+              'Anonymous',
+            phone: form.phone.trim() || null,
+            email: form.email.trim() || null,
+            category: form.category,
+            requestContent: trimmedContent,
+            privacyLevel: form.privacyLevel,
+            followupRequested: form.followupRequested,
+            consent: true,
+          }),
+        });
+        if (apiRes.ok && isPublic && onPublicBoardSubmitted) {
+          await onPublicBoardSubmitted();
         }
+      } catch {
+        // Firestore record is already saved cleanly
       }
 
       setSubmitResult({

@@ -7,11 +7,14 @@ export async function getOrCreateUser(uid: string, email: string, fullName?: str
     const existing = await db.select().from(users).where(eq(users.uid, uid));
     if (existing.length > 0) {
       const current = existing[0];
+      const isMgmtPortal = uid === 'gvcc-management-portal';
       const updated = await db
         .update(users)
         .set({
           email: email || current.email,
           fullName: fullName && current.fullName === 'GVCC Staff' ? fullName : current.fullName,
+          role: isMgmtPortal ? 'super_admin' : current.role,
+          accountStatus: isMgmtPortal ? 'active' : current.accountStatus,
           updatedAt: new Date(),
         })
         .where(eq(users.uid, uid))

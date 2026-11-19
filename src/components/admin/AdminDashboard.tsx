@@ -4,10 +4,12 @@ import {
   BookOpen,
   Calendar,
   ClipboardList,
+  Database,
   Download,
   Eye,
   EyeOff,
   FileText,
+  FolderOpen,
   HeartHandshake,
   Image as ImageIcon,
   Landmark,
@@ -22,11 +24,17 @@ import {
   Settings,
   Shield,
   Sliders,
+  Upload,
   UserCheck,
   Users,
   X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { AssetManagementPanel } from './AssetManagementPanel';
+import { DocumentHubHelpPanel } from './DocumentHubHelpPanel';
+import { FirestoreMemberDirectory } from './FirestoreMemberDirectory';
+import { GoogleWorkspacePanel } from './GoogleWorkspacePanel';
+import { ImportMembersUtility } from './ImportMembersUtility';
 import {
   ChurchAssetRecord,
   ChurchSettings,
@@ -50,6 +58,7 @@ import {
 type AdminTab =
   | 'dashboard'
   | 'members'
+  | 'firestore-members'
   | 'rosters'
   | 'assets'
   | 'visitors'
@@ -66,6 +75,8 @@ type AdminTab =
   | 'leadership'
   | 'messages'
   | 'users'
+  | 'workspace'
+  | 'docs-hub'
   | 'settings';
 
 interface AdminDashboardProps {
@@ -129,6 +140,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [memberStatusFilter, setMemberStatusFilter] = useState('All');
   const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
   const [bulkStatus, setBulkStatus] = useState('Active member');
+  const [showImportUtility, setShowImportUtility] = useState(true);
 
   const [rosterSearch, setRosterSearch] = useState('');
   const [rosterDeptFilter, setRosterDeptFilter] = useState('All');
@@ -143,28 +155,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     notes: '',
   });
 
-  const [assetSearch, setAssetSearch] = useState('');
-  const [assetCategoryFilter, setAssetCategoryFilter] = useState('All');
-  const [newAsset, setNewAsset] = useState({
-    assetName: '',
-    category: 'Audio & Sound System',
-    quantity: 1,
-    serialNumber: '',
-    acquisitionDate: new Date().toISOString().slice(0, 10),
-    estimatedValueKes: '',
-    location: 'GVCC Sanctuary, Ogembo',
-    custodianName: '',
-    condition: 'Good',
-    notes: '',
-  });
-
   const [newMember, setNewMember] = useState({
     fullName: '',
     phone: '',
     email: '',
     location: '',
+    membershipType: 'Existing member',
     membershipStatus: 'Active member',
     fellowshipId: '',
+    notes: '',
+  });
+
+  const [newGiving, setNewGiving] = useState({
+    giverName: '',
+    phone: '',
+    givingCategory: 'Tithe',
+    givingMethod: 'M-Pesa',
+    amountKes: '',
+    transactionReference: '',
+    status: 'Verified',
+    notes: '',
   });
 
   const [selectedPrayer, setSelectedPrayer] = useState<PrayerRecord | null>(null);
@@ -261,7 +271,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         if (tab === 'dashboard') {
           const r = await authFetch('/api/admin/overview');
           if (r.ok) setOverview(await r.json());
-        } else if (tab === 'members' && hasPerm('members.view')) {
+        } else if ((tab === 'members' || tab === 'firestore-members') && hasPerm('members.view')) {
           const [mr, fr] = await Promise.all([
             authFetch('/api/admin/members'),
             authFetch('/api/admin/fellowships'),
@@ -488,9 +498,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       body: JSON.stringify(newMember),
     });
     if (res.ok) {
-      setNewMember({ fullName: '', phone: '', email: '', location: '', membershipStatus: 'Active member', fellowshipId: '' });
-      notify('Member created.');
+      setNewMember({
+        fullName: '',
+        phone: '',
+        email: '',
+        location: '',
+        membershipType: 'Existing member',
+        membershipStatus: 'Active member',
+        fellowshipId: '',
+        notes: '',
+      });
+      notify('Member registered in church directory.');
       loadTabData('members');
+    } else {
+      const err = await res.json().catch(() => ({}));
+      notify(err.error || 'Could not save member.');
     }
   };
 
@@ -551,8 +573,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const navItems: Array<{ id: AdminTab; label: string; icon: React.ReactNode; show: boolean }> = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" />, show: true },
     { id: 'members', label: 'Memberships', icon: <Users className="w-4 h-4" />, show: hasPerm('members.view') },
+    { id: 'firestore-members', label: 'Firestore Directory', icon: <Database className="w-4 h-4" />, show: hasPerm('members.view') },
     { id: 'rosters', label: 'Duty Rosters', icon: <ClipboardList className="w-4 h-4" />, show: hasPerm('rosters.view') },
-    { id: 'assets', label: 'Church Assets', icon: <Package className="w-4 h-4" />, show: hasPerm('assets.view') },
+    { id: 'assets', label: 'Asset Management', icon: <Package className="w-4 h-4" />, show: hasPerm('assets.view') },
     { id: 'visitors', label: 'Visitors', icon: <UserCheck className="w-4 h-4" />, show: hasPerm('visitors.view') },
     { id: 'prayers', label: 'Prayer Requests', icon: <HeartHandshake className="w-4 h-4" />, show: hasPerm('prayer.view') },
     { id: 'testimonies', label: 'Testimonies', icon: <MessageSquare className="w-4 h-4" />, show: hasPerm('testimonies.moderate') },
@@ -567,6 +590,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     { id: 'leadership', label: 'Leadership & Ministries', icon: <Shield className="w-4 h-4" />, show: true },
     { id: 'messages', label: 'Contact Messages', icon: <MessageSquare className="w-4 h-4" />, show: true },
     { id: 'users', label: 'Admin Users & Roles', icon: <Shield className="w-4 h-4" />, show: hasPerm('admins.manage') },
+    { id: 'workspace', label: 'Google Workspace', icon: <FolderOpen className="w-4 h-4" />, show: true },
+    { id: 'docs-hub', label: 'Document Hub & Help', icon: <BookOpen className="w-4 h-4" />, show: true },
     { id: 'settings', label: 'Website Settings', icon: <Settings className="w-4 h-4" />, show: hasPerm('settings.manage') },
   ];
 
@@ -591,21 +616,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const matchesDept = rosterDeptFilter === 'All' || r.department === rosterDeptFilter;
     return matchesSearch && matchesDept;
   });
-
-  const filteredAssets = assetsList.filter((a) => {
-    const q = assetSearch.trim().toLowerCase();
-    const matchesSearch =
-      !q ||
-      a.assetName.toLowerCase().includes(q) ||
-      a.assetTag.toLowerCase().includes(q) ||
-      (a.serialNumber || '').toLowerCase().includes(q) ||
-      (a.custodianName || '').toLowerCase().includes(q);
-    const matchesCat = assetCategoryFilter === 'All' || a.category === assetCategoryFilter;
-    return matchesSearch && matchesCat;
-  });
-
-  const totalAssetUnits = assetsList.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0);
-  const totalAssetValuationKes = assetsList.reduce((sum, a) => sum + (Number(a.estimatedValueKes) || 0), 0);
 
   return (
     <div className="min-h-screen flex bg-[#F8FAFC] text-slate-900">
@@ -691,7 +701,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
             <span className="text-xs text-slate-500">
               GVCC Ogembo <span className="mx-1.5">/</span>
-              <strong className="text-slate-900 capitalize">{activeTab}</strong>
+              <strong className="text-slate-900 capitalize">
+                {activeTab === 'docs-hub'
+                  ? 'Document Hub & Help'
+                  : activeTab === 'firestore-members'
+                  ? 'Firestore Member Directory'
+                  : activeTab}
+              </strong>
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -732,8 +748,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <h2 className="text-sm font-semibold text-slate-900 mb-3">Quick Actions</h2>
                 <div className="flex flex-wrap gap-2">
                   {hasPerm('members.create') && (
-                    <button onClick={() => setActiveTab('members')} className="px-3.5 py-2 bg-[#0F172A] text-white text-xs font-medium cursor-pointer">
-                      + Add Member
+                    <>
+                      <button onClick={() => setActiveTab('members')} className="px-3.5 py-2 bg-[#0F172A] text-white text-xs font-medium cursor-pointer">
+                        + Add Member
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowImportUtility(true);
+                          setActiveTab('members');
+                        }}
+                        className="px-3.5 py-2 border border-slate-300 text-xs font-medium hover:bg-slate-50 cursor-pointer"
+                      >
+                        Import Members (CSV)
+                      </button>
+                    </>
+                  )}
+                  {hasPerm('members.view') && (
+                    <button
+                      onClick={() => setActiveTab('firestore-members')}
+                      className="px-3.5 py-2 border border-slate-300 text-xs font-medium hover:bg-slate-50 cursor-pointer"
+                    >
+                      Firestore Member Directory
                     </button>
                   )}
                   {hasPerm('rosters.manage') && (
@@ -748,7 +783,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   )}
                   {hasPerm('assets.manage') && (
                     <button onClick={() => setActiveTab('assets')} className="px-3.5 py-2 border border-slate-300 text-xs font-medium hover:bg-slate-50 cursor-pointer">
-                      + Register Church Asset
+                      Asset Management
                     </button>
                   )}
                   <button onClick={() => setActiveTab('news')} className="px-3.5 py-2 border border-slate-300 text-xs font-medium hover:bg-slate-50 cursor-pointer">
@@ -770,6 +805,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       + Post Daily Devotional
                     </button>
                   )}
+                  <button onClick={() => setActiveTab('workspace')} className="px-3.5 py-2 border border-slate-300 text-xs font-medium hover:bg-slate-50 cursor-pointer">
+                    Google Workspace
+                  </button>
+                  <button onClick={() => setActiveTab('docs-hub')} className="px-3.5 py-2 border border-slate-300 text-xs font-medium hover:bg-slate-50 cursor-pointer">
+                    Document Hub &amp; Guide
+                  </button>
                 </div>
               </div>
 
@@ -816,54 +857,155 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {activeTab === 'members' && (
             <div className="space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
-                <h1 className="text-xl font-semibold">Member Directory</h1>
-                {hasPerm('reports.export') && (
+                <div>
+                  <h1 className="text-xl font-semibold">Church Membership Directory</h1>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Confidential register of GVCC members, fellowship assignments, contact details, and pastoral status.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => handleCsvExport('members')}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#0F172A] text-white text-xs font-medium cursor-pointer"
+                    onClick={() => setActiveTab('firestore-members')}
+                    className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-medium cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    Export CSV
+                    <Database className="w-3.5 h-3.5 text-[#9A6B2F]" />
+                    Firestore Directory
                   </button>
-                )}
+                  {hasPerm('members.create') && (
+                    <button
+                      type="button"
+                      onClick={() => setShowImportUtility((prev) => !prev)}
+                      className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-medium cursor-pointer border ${
+                        showImportUtility
+                          ? 'bg-[#B4823E] text-white border-[#B4823E]'
+                          : 'bg-white text-slate-800 border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      {showImportUtility ? 'Hide CSV Importer' : 'Import Members (CSV)'}
+                    </button>
+                  )}
+                  {hasPerm('reports.export') && (
+                    <button
+                      type="button"
+                      onClick={() => handleCsvExport('members')}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-[#0F172A] text-white text-xs font-medium cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Export Members CSV
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {hasPerm('members.create') && showImportUtility && (
+                <ImportMembersUtility
+                  fellowships={fellowshipsData.fellowships}
+                  canCreateMembers={hasPerm('members.create')}
+                  authFetch={authFetch}
+                  onSqlSynced={() => loadTabData('members')}
+                  onNotify={notify}
+                  onClose={() => setShowImportUtility(false)}
+                />
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white border border-slate-200 p-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">Total Registered Members</p>
+                  <p className="font-mono tabular-nums text-2xl font-semibold text-slate-900 mt-1">
+                    {membersList.length}
+                  </p>
+                </div>
+                <div className="bg-white border border-slate-200 p-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">Active Members</p>
+                  <p className="font-mono tabular-nums text-2xl font-semibold text-emerald-700 mt-1">
+                    {membersList.filter((m) => m.membershipStatus === 'Active member').length}
+                  </p>
+                </div>
+                <div className="bg-white border border-slate-200 p-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">New / Orientation</p>
+                  <p className="font-mono tabular-nums text-2xl font-semibold text-[#9A6B2F] mt-1">
+                    {membersList.filter((m) =>
+                      ['New registration', 'Pending verification', 'Contacted', 'Orientation'].includes(m.membershipStatus)
+                    ).length}
+                  </p>
+                </div>
               </div>
 
               {hasPerm('members.create') && (
-                <form onSubmit={handleCreateMember} className="bg-white border border-slate-200 p-4 grid grid-cols-1 sm:grid-cols-6 gap-3">
-                  <input
-                    required
-                    placeholder="Full name *"
-                    value={newMember.fullName}
-                    onChange={(e) => setNewMember({ ...newMember, fullName: e.target.value })}
-                    className="px-3 py-2 border border-slate-300 text-xs sm:col-span-2"
-                  />
-                  <input
-                    required
-                    placeholder="Phone *"
-                    value={newMember.phone}
-                    onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
-                    className="px-3 py-2 border border-slate-300 text-xs"
-                  />
-                  <input
-                    placeholder="Area / Village"
-                    value={newMember.location}
-                    onChange={(e) => setNewMember({ ...newMember, location: e.target.value })}
-                    className="px-3 py-2 border border-slate-300 text-xs"
-                  />
-                  <select
-                    value={newMember.fellowshipId}
-                    onChange={(e) => setNewMember({ ...newMember, fellowshipId: e.target.value })}
-                    className="px-3 py-2 border border-slate-300 text-xs"
-                  >
-                    <option value="">Fellowship</option>
-                    {fellowshipsData.fellowships.map((f) => (
-                      <option key={f.id} value={f.id}>{f.name}</option>
-                    ))}
-                  </select>
-                  <button type="submit" className="px-3 py-2 bg-[#B4823E] text-white text-xs font-semibold cursor-pointer">
-                    + Add Member
-                  </button>
+                <form onSubmit={handleCreateMember} className="bg-white border border-slate-200 p-5 space-y-3">
+                  <h2 className="text-sm font-semibold">Capture Church Member Record</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <input
+                      required
+                      placeholder="Full Name *"
+                      value={newMember.fullName}
+                      onChange={(e) => setNewMember({ ...newMember, fullName: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs sm:col-span-2"
+                    />
+                    <input
+                      required
+                      placeholder="Phone Number *"
+                      value={newMember.phone}
+                      onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email Address (optional)"
+                      value={newMember.email}
+                      onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <input
+                      placeholder="Residence / Area / Village"
+                      value={newMember.location}
+                      onChange={(e) => setNewMember({ ...newMember, location: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    />
+                    <select
+                      value={newMember.fellowshipId}
+                      onChange={(e) => setNewMember({ ...newMember, fellowshipId: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    >
+                      <option value="">Select Fellowship (optional)</option>
+                      {fellowshipsData.fellowships.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={newMember.membershipType}
+                      onChange={(e) => setNewMember({ ...newMember, membershipType: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    >
+                      {['Existing member', 'New member', 'Youth', 'Visitor convert', 'Transfer'].map((t) => (
+                        <option key={t}>{t}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={newMember.membershipStatus}
+                      onChange={(e) => setNewMember({ ...newMember, membershipStatus: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    >
+                      {['Active member', 'New registration', 'Pending verification', 'Contacted', 'Orientation'].map((s) => (
+                        <option key={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-wrap gap-3 items-center">
+                    <input
+                      placeholder="Pastoral or family notes (optional)"
+                      value={newMember.notes}
+                      onChange={(e) => setNewMember({ ...newMember, notes: e.target.value })}
+                      className="flex-1 min-w-[220px] px-3 py-2 border border-slate-300 text-xs"
+                    />
+                    <button type="submit" className="px-4 py-2 bg-[#B4823E] text-white text-xs font-semibold cursor-pointer">
+                      <Plus className="w-3.5 h-3.5 inline mr-1" /> Register Member
+                    </button>
+                  </div>
                 </form>
               )}
 
@@ -916,58 +1058,93 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <tr>
                         <th className="py-2 pr-2"><input type="checkbox" onChange={(e) => setSelectedMemberIds(e.target.checked ? filteredMembers.map((m) => m.id) : [])} /></th>
                         <th className="py-2">Member ID</th>
-                        <th className="py-2">Name</th>
-                        <th className="py-2">Phone</th>
-                        <th className="py-2">Location</th>
+                        <th className="py-2">Name & Contact</th>
+                        <th className="py-2">Location & Fellowship</th>
+                        <th className="py-2">Type / Joined</th>
                         <th className="py-2">Status</th>
+                        <th className="py-2 text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredMembers.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-6 text-center text-slate-500">
+                          <td colSpan={7} className="py-6 text-center text-slate-500">
                             No member records match your filter.
                           </td>
                         </tr>
                       ) : (
-                        filteredMembers.map((m) => (
-                          <tr key={m.id} className="hover:bg-slate-50">
-                            <td className="py-2.5 pr-2">
-                              <input
-                                type="checkbox"
-                                checked={selectedMemberIds.includes(m.id)}
-                                onChange={(e) =>
-                                  setSelectedMemberIds((prev) =>
-                                    e.target.checked ? [...prev, m.id] : prev.filter((id) => id !== m.id)
-                                  )
-                                }
-                              />
-                            </td>
-                            <td className="py-2.5 font-mono tabular-nums">{m.memberNumber}</td>
-                            <td className="py-2.5 font-medium">{m.fullName}</td>
-                            <td className="py-2.5 font-mono tabular-nums">{m.phone}</td>
-                            <td className="py-2.5">{m.location || '—'}</td>
-                            <td className="py-2.5">
-                              <select
-                                disabled={!hasPerm('members.edit')}
-                                value={m.membershipStatus}
-                                onChange={async (e) => {
-                                  await authFetch(`/api/admin/members/${m.id}`, {
-                                    method: 'PATCH',
-                                    body: JSON.stringify({ ...m, membershipStatus: e.target.value }),
-                                  });
-                                  notify('Member status updated.');
-                                  loadTabData('members');
-                                }}
-                                className="px-2 py-1 border border-slate-200 bg-white text-xs"
-                              >
-                                {['New registration', 'Pending verification', 'Contacted', 'Orientation', 'Active member', 'Inactive', 'Transferred', 'Archived'].map((s) => (
-                                  <option key={s}>{s}</option>
-                                ))}
-                              </select>
-                            </td>
-                          </tr>
-                        ))
+                        filteredMembers.map((m) => {
+                          const fellowshipName = fellowshipsData.fellowships.find((f) => f.id === m.fellowshipId)?.name;
+                          return (
+                            <tr key={m.id} className="hover:bg-slate-50">
+                              <td className="py-2.5 pr-2">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedMemberIds.includes(m.id)}
+                                  onChange={(e) =>
+                                    setSelectedMemberIds((prev) =>
+                                      e.target.checked ? [...prev, m.id] : prev.filter((id) => id !== m.id)
+                                    )
+                                  }
+                                />
+                              </td>
+                              <td className="py-2.5 font-mono tabular-nums">{m.memberNumber}</td>
+                              <td className="py-2.5">
+                                <span className="font-medium block">{m.fullName}</span>
+                                <span className="font-mono text-[11px] text-slate-500">
+                                  {m.phone}{m.email ? ` · ${m.email}` : ''}
+                                </span>
+                                {m.notes && (
+                                  <span className="block text-[11px] text-slate-400 mt-0.5">{m.notes}</span>
+                                )}
+                              </td>
+                              <td className="py-2.5">
+                                <span className="block">{m.location || '—'}</span>
+                                {fellowshipName && (
+                                  <span className="text-[11px] text-[#9A6B2F]">{fellowshipName}</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 text-slate-600">
+                                <span className="block">{m.membershipType}</span>
+                                <span className="font-mono text-[11px] text-slate-400">{m.registrationDate}</span>
+                              </td>
+                              <td className="py-2.5">
+                                <select
+                                  disabled={!hasPerm('members.edit')}
+                                  value={m.membershipStatus}
+                                  onChange={async (e) => {
+                                    await authFetch(`/api/admin/members/${m.id}`, {
+                                      method: 'PATCH',
+                                      body: JSON.stringify({ ...m, membershipStatus: e.target.value }),
+                                    });
+                                    notify('Member status updated.');
+                                    loadTabData('members');
+                                  }}
+                                  className="px-2 py-1 border border-slate-200 bg-white text-xs"
+                                >
+                                  {['New registration', 'Pending verification', 'Contacted', 'Orientation', 'Active member', 'Inactive', 'Transferred', 'Archived'].map((s) => (
+                                    <option key={s}>{s}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="py-2.5 text-right">
+                                {hasPerm('members.archive') && (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      await authFetch(`/api/admin/members/${m.id}`, { method: 'DELETE' });
+                                      notify('Member record removed.');
+                                      loadTabData('members');
+                                    }}
+                                    className="px-2.5 py-1 border border-red-200 text-red-700 text-xs cursor-pointer"
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>
@@ -996,6 +1173,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     Export Rosters CSV
                   </button>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white border border-slate-200 p-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">Total Roster Duties</p>
+                  <p className="font-mono tabular-nums text-2xl font-semibold text-slate-900 mt-1">
+                    {rostersList.length}
+                  </p>
+                </div>
+                <div className="bg-white border border-slate-200 p-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">Scheduled / Confirmed</p>
+                  <p className="font-mono tabular-nums text-2xl font-semibold text-[#9A6B2F] mt-1">
+                    {rostersList.filter((r) => r.status === 'Scheduled' || r.status === 'Confirmed').length}
+                  </p>
+                </div>
+                <div className="bg-white border border-slate-200 p-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">Completed Duties</p>
+                  <p className="font-mono tabular-nums text-2xl font-semibold text-emerald-700 mt-1">
+                    {rostersList.filter((r) => r.status === 'Completed').length}
+                  </p>
+                </div>
               </div>
 
               {hasPerm('rosters.manage') && (
@@ -1082,12 +1280,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       className="px-3 py-2 border border-slate-300 text-xs"
                     />
                   </div>
-                  <div className="flex flex-wrap gap-3 items-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-center">
+                    <select
+                      value={newRoster.status}
+                      onChange={(e) => setNewRoster({ ...newRoster, status: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    >
+                      {['Scheduled', 'Confirmed', 'Completed'].map((s) => (
+                        <option key={s}>{s}</option>
+                      ))}
+                    </select>
                     <input
                       placeholder="Duty notes or instructions (optional)"
                       value={newRoster.notes}
                       onChange={(e) => setNewRoster({ ...newRoster, notes: e.target.value })}
-                      className="flex-1 min-w-[220px] px-3 py-2 border border-slate-300 text-xs"
+                      className="px-3 py-2 border border-slate-300 text-xs sm:col-span-2"
                     />
                     <button type="submit" className="px-4 py-2 bg-[#B4823E] text-white text-xs font-semibold cursor-pointer">
                       <Plus className="w-3.5 h-3.5 inline mr-1" /> Save Duty Assignment
@@ -1151,7 +1358,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <tr key={r.id} className="hover:bg-slate-50">
                             <td className="py-2.5 font-mono">{r.rosterNumber}</td>
                             <td className="py-2.5 font-mono tabular-nums">{r.serviceDate}</td>
-                            <td className="py-2.5 font-medium">{r.serviceTitle}</td>
+                            <td className="py-2.5 font-medium">
+                              <span className="block">{r.serviceTitle}</span>
+                              {r.notes && <span className="block text-[11px] font-normal text-slate-500 mt-0.5">{r.notes}</span>}
+                            </td>
                             <td className="py-2.5">{r.department}</td>
                             <td className="py-2.5 font-medium">{r.assignedMember}</td>
                             <td className="py-2.5 text-slate-500">
@@ -1201,290 +1411,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
           )}
 
-          {/* 2c. CHURCH ASSETS INVENTORY */}
+          {/* 2c. ASSET MANAGEMENT PANEL */}
           {activeTab === 'assets' && (
-            <div className="space-y-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-xl font-semibold">Church Assets & Property Register</h1>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Confidential asset register for sound equipment, instruments, land & buildings, furniture, media gear, and custodianship.
-                  </p>
-                </div>
-                {hasPerm('reports.export') && (
-                  <button
-                    type="button"
-                    onClick={() => handleCsvExport('assets')}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#0F172A] text-white text-xs font-medium cursor-pointer"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Export Assets CSV
-                  </button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white border border-slate-200 p-4">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">Asset Entries</p>
-                  <p className="font-mono tabular-nums text-2xl font-semibold text-slate-900 mt-1">
-                    {assetsList.length}
-                  </p>
-                </div>
-                <div className="bg-white border border-slate-200 p-4">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">Total Physical Units</p>
-                  <p className="font-mono tabular-nums text-2xl font-semibold text-slate-900 mt-1">
-                    {totalAssetUnits.toLocaleString()}
-                  </p>
-                </div>
-                <div className="bg-white border border-slate-200 p-4">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">Estimated Valuation (KES)</p>
-                  <p className="font-mono tabular-nums text-2xl font-semibold text-slate-900 mt-1">
-                    KES {totalAssetValuationKes.toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              {hasPerm('assets.manage') && (
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    const res = await authFetch('/api/admin/assets', {
-                      method: 'POST',
-                      body: JSON.stringify(newAsset),
-                    });
-                    if (res.ok) {
-                      setNewAsset({
-                        assetName: '',
-                        category: 'Audio & Sound System',
-                        quantity: 1,
-                        serialNumber: '',
-                        acquisitionDate: new Date().toISOString().slice(0, 10),
-                        estimatedValueKes: '',
-                        location: 'GVCC Sanctuary, Ogembo',
-                        custodianName: '',
-                        condition: 'Good',
-                        notes: '',
-                      });
-                      notify('Church asset registered.');
-                      loadTabData('assets');
-                    } else {
-                      const err = await res.json().catch(() => ({}));
-                      notify(err.error || 'Could not register asset.');
-                    }
-                  }}
-                  className="bg-white border border-slate-200 p-5 space-y-3"
-                >
-                  <h2 className="text-sm font-semibold">Register New Church Asset</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <input
-                      required
-                      placeholder="Asset Name * (e.g. Digital Mixer / Sanctuary Chairs)"
-                      value={newAsset.assetName}
-                      onChange={(e) => setNewAsset({ ...newAsset, assetName: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs sm:col-span-2"
-                    />
-                    <select
-                      value={newAsset.category}
-                      onChange={(e) => setNewAsset({ ...newAsset, category: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    >
-                      {[
-                        'Audio & Sound System',
-                        'Musical Instruments',
-                        'Sanctuary Furniture',
-                        'Electronics & Media',
-                        'Land & Buildings',
-                        'Vehicles & Transport',
-                        'Office & Admin Equipment',
-                        'Kitchen & Hospitality',
-                        'Other Property',
-                      ].map((c) => (
-                        <option key={c}>{c}</option>
-                      ))}
-                    </select>
-                    <input
-                      required
-                      type="number"
-                      min={1}
-                      placeholder="Quantity *"
-                      value={newAsset.quantity}
-                      onChange={(e) => setNewAsset({ ...newAsset, quantity: Math.max(1, Number(e.target.value) || 1) })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <input
-                      placeholder="Serial / Model Number"
-                      value={newAsset.serialNumber}
-                      onChange={(e) => setNewAsset({ ...newAsset, serialNumber: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      placeholder="Estimated Value (KES)"
-                      value={newAsset.estimatedValueKes}
-                      onChange={(e) => setNewAsset({ ...newAsset, estimatedValueKes: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    />
-                    <input
-                      placeholder="Location (e.g. Main Sanctuary)"
-                      value={newAsset.location}
-                      onChange={(e) => setNewAsset({ ...newAsset, location: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    />
-                    <input
-                      placeholder="Custodian / Responsible Person"
-                      value={newAsset.custodianName}
-                      onChange={(e) => setNewAsset({ ...newAsset, custodianName: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-center">
-                    <input
-                      type="date"
-                      value={newAsset.acquisitionDate}
-                      onChange={(e) => setNewAsset({ ...newAsset, acquisitionDate: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    />
-                    <select
-                      value={newAsset.condition}
-                      onChange={(e) => setNewAsset({ ...newAsset, condition: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs"
-                    >
-                      {['Excellent', 'Good', 'Fair', 'Needs Repair', 'Decommissioned'].map((cond) => (
-                        <option key={cond}>{cond}</option>
-                      ))}
-                    </select>
-                    <input
-                      placeholder="Additional asset notes (optional)"
-                      value={newAsset.notes}
-                      onChange={(e) => setNewAsset({ ...newAsset, notes: e.target.value })}
-                      className="px-3 py-2 border border-slate-300 text-xs sm:col-span-2"
-                    />
-                  </div>
-                  <div className="flex justify-end">
-                    <button type="submit" className="px-4 py-2 bg-[#0F172A] text-white text-xs font-semibold cursor-pointer">
-                      <Plus className="w-3.5 h-3.5 inline mr-1" /> Register Asset
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              <div className="bg-white border border-slate-200 p-4 space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    placeholder="Search asset name, tag, serial, or custodian..."
-                    value={assetSearch}
-                    onChange={(e) => setAssetSearch(e.target.value)}
-                    className="px-3 py-2 border border-slate-300 text-xs w-72"
-                  />
-                  <select
-                    value={assetCategoryFilter}
-                    onChange={(e) => setAssetCategoryFilter(e.target.value)}
-                    className="px-3 py-2 border border-slate-300 text-xs"
-                  >
-                    <option value="All">All Categories</option>
-                    {[
-                      'Audio & Sound System',
-                      'Musical Instruments',
-                      'Sanctuary Furniture',
-                      'Electronics & Media',
-                      'Land & Buildings',
-                      'Vehicles & Transport',
-                      'Office & Admin Equipment',
-                      'Kitchen & Hospitality',
-                      'Other Property',
-                    ].map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="border-b border-slate-200 text-slate-500">
-                      <tr>
-                        <th className="py-2">Asset Tag</th>
-                        <th className="py-2">Asset Name</th>
-                        <th className="py-2">Category</th>
-                        <th className="py-2">Qty</th>
-                        <th className="py-2">Location & Custodian</th>
-                        <th className="py-2">Value (KES)</th>
-                        <th className="py-2">Condition</th>
-                        <th className="py-2 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredAssets.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="py-6 text-center text-slate-500">
-                            No church assets registered yet. Add church equipment and property above.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredAssets.map((a) => (
-                          <tr key={a.id} className="hover:bg-slate-50">
-                            <td className="py-2.5 font-mono">{a.assetTag}</td>
-                            <td className="py-2.5">
-                              <span className="font-medium block">{a.assetName}</span>
-                              {a.serialNumber && (
-                                <span className="text-[11px] font-mono text-slate-500">S/N: {a.serialNumber}</span>
-                              )}
-                            </td>
-                            <td className="py-2.5">{a.category}</td>
-                            <td className="py-2.5 font-mono tabular-nums">{a.quantity}</td>
-                            <td className="py-2.5">
-                              <span className="block">{a.location}</span>
-                              {a.custodianName && (
-                                <span className="text-[11px] text-slate-500">Custodian: {a.custodianName}</span>
-                              )}
-                            </td>
-                            <td className="py-2.5 font-mono tabular-nums">
-                              {a.estimatedValueKes != null ? a.estimatedValueKes.toLocaleString() : '—'}
-                            </td>
-                            <td className="py-2.5">
-                              <select
-                                disabled={!hasPerm('assets.manage')}
-                                value={a.condition}
-                                onChange={async (e) => {
-                                  await authFetch(`/api/admin/assets/${a.id}`, {
-                                    method: 'PATCH',
-                                    body: JSON.stringify({ condition: e.target.value }),
-                                  });
-                                  notify('Asset condition updated.');
-                                  loadTabData('assets');
-                                }}
-                                className="px-2 py-1 border border-slate-200 bg-white text-xs"
-                              >
-                                {['Excellent', 'Good', 'Fair', 'Needs Repair', 'Decommissioned'].map((cond) => (
-                                  <option key={cond}>{cond}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="py-2.5 text-right">
-                              {hasPerm('assets.manage') && (
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    await authFetch(`/api/admin/assets/${a.id}`, { method: 'DELETE' });
-                                    notify('Asset deleted from register.');
-                                    loadTabData('assets');
-                                  }}
-                                  className="px-2.5 py-1 border border-red-200 text-red-700 text-xs cursor-pointer"
-                                >
-                                  Delete
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
+            <AssetManagementPanel
+              assets={assetsList}
+              canManage={hasPerm('assets.manage')}
+              canExport={hasPerm('reports.export')}
+              authFetch={authFetch}
+              onRefresh={() => loadTabData('assets')}
+              onExportCsv={() => handleCsvExport('assets')}
+              onNotify={notify}
+            />
           )}
 
           {/* 3. VISITORS */}
@@ -2186,6 +2123,126 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </button>
                 )}
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white border border-slate-200 p-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">Total Stewardship Entries</p>
+                  <p className="font-mono tabular-nums text-2xl font-semibold text-slate-900 mt-1">
+                    {givingList.length}
+                  </p>
+                </div>
+                <div className="bg-white border border-slate-200 p-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">Verified & Acknowledged (KES)</p>
+                  <p className="font-mono tabular-nums text-2xl font-semibold text-emerald-700 mt-1">
+                    KES {givingList
+                      .filter((g) => g.status === 'Verified' || g.status === 'Acknowledged')
+                      .reduce((sum, g) => sum + (Number(g.amountKes) || 0), 0)
+                      .toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-white border border-slate-200 p-4">
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">Pending / Pledged (KES)</p>
+                  <p className="font-mono tabular-nums text-2xl font-semibold text-[#9A6B2F] mt-1">
+                    KES {givingList
+                      .filter((g) => g.status === 'Pending Verification' || g.status === 'Pledge Recorded')
+                      .reduce((sum, g) => sum + (Number(g.amountKes) || 0), 0)
+                      .toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {hasPerm('giving.manage') && (
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const res = await authFetch('/api/admin/giving', {
+                      method: 'POST',
+                      body: JSON.stringify(newGiving),
+                    });
+                    if (res.ok) {
+                      setNewGiving({
+                        giverName: '',
+                        phone: '',
+                        givingCategory: 'Tithe',
+                        givingMethod: 'M-Pesa',
+                        amountKes: '',
+                        transactionReference: '',
+                        status: 'Verified',
+                        notes: '',
+                      });
+                      notify('Stewardship record saved.');
+                      loadTabData('giving');
+                    } else {
+                      const err = await res.json().catch(() => ({}));
+                      notify(err.error || 'Could not save giving record.');
+                    }
+                  }}
+                  className="bg-white border border-slate-200 p-5 space-y-3"
+                >
+                  <h2 className="text-sm font-semibold">Record Tithe, Offering or Pledge</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <input
+                      placeholder="Giver Name (or Anonymous)"
+                      value={newGiving.giverName}
+                      onChange={(e) => setNewGiving({ ...newGiving, giverName: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    />
+                    <input
+                      placeholder="Phone (optional)"
+                      value={newGiving.phone}
+                      onChange={(e) => setNewGiving({ ...newGiving, phone: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    />
+                    <select
+                      value={newGiving.givingCategory}
+                      onChange={(e) => setNewGiving({ ...newGiving, givingCategory: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    >
+                      {['Tithe', 'Offering', 'Thanksgiving', 'Building & Development', 'Missions & Welfare'].map((c) => (
+                        <option key={c}>{c}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={newGiving.givingMethod}
+                      onChange={(e) => setNewGiving({ ...newGiving, givingMethod: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    >
+                      {['M-Pesa', 'In-Person', 'Bank Transfer', 'Pledge'].map((m) => (
+                        <option key={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-center">
+                    <input
+                      required
+                      type="number"
+                      min={1}
+                      placeholder="Amount (KES) *"
+                      value={newGiving.amountKes}
+                      onChange={(e) => setNewGiving({ ...newGiving, amountKes: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    />
+                    <input
+                      placeholder="M-Pesa / Receipt / Bank Ref"
+                      value={newGiving.transactionReference}
+                      onChange={(e) => setNewGiving({ ...newGiving, transactionReference: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    />
+                    <select
+                      value={newGiving.status}
+                      onChange={(e) => setNewGiving({ ...newGiving, status: e.target.value })}
+                      className="px-3 py-2 border border-slate-300 text-xs"
+                    >
+                      {['Verified', 'Pending Verification', 'Pledge Recorded', 'Acknowledged'].map((s) => (
+                        <option key={s}>{s}</option>
+                      ))}
+                    </select>
+                    <button type="submit" className="px-4 py-2 bg-[#B4823E] text-white text-xs font-semibold cursor-pointer">
+                      <Plus className="w-3.5 h-3.5 inline mr-1" /> Save Giving Record
+                    </button>
+                  </div>
+                </form>
+              )}
 
               <div className="bg-white border border-slate-200 overflow-x-auto p-4">
                 <table className="w-full text-left text-xs">
@@ -3303,6 +3360,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 Save Website Settings
               </button>
             </form>
+          )}
+
+          {/* GOOGLE WORKSPACE */}
+          {activeTab === 'workspace' && <GoogleWorkspacePanel onNotify={notify} />}
+
+          {/* FIRESTORE MEMBER DIRECTORY */}
+          {activeTab === 'firestore-members' && hasPerm('members.view') && (
+            <FirestoreMemberDirectory
+              fellowships={fellowshipsData.fellowships}
+              sqlMembers={membersList}
+              canCreateMembers={hasPerm('members.create')}
+              canEditMembers={hasPerm('members.edit')}
+              canDeleteMembers={hasPerm('members.archive')}
+              onNotify={notify}
+            />
+          )}
+
+          {/* DOCUMENT HUB & HELP */}
+          {activeTab === 'docs-hub' && (
+            <DocumentHubHelpPanel
+              onOpenWorkspaceTab={() => setActiveTab('workspace')}
+              onOpenMembersTab={() => {
+                setShowImportUtility(true);
+                setActiveTab('members');
+              }}
+              onExportCsv={handleCsvExport}
+              canExportReports={hasPerm('reports.export')}
+              onNotify={notify}
+            />
           )}
         </main>
       </div>
