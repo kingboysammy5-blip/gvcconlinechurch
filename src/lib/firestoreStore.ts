@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from './firebase';
 
@@ -262,7 +263,12 @@ export function subscribeSanctuaryLeaderboard(
   onError?: (err: Error) => void
 ): () => void {
   const lbPath = 'leaderboard';
-  const q = query(collection(db, 'leaderboard'), orderBy('bestScore', 'desc'), limit(10));
+  const q = query(
+    collection(db, 'leaderboard'),
+    where('bestScore', '>=', 0),
+    orderBy('bestScore', 'desc'),
+    limit(10)
+  );
   return onSnapshot(
     q,
     (snapshot) => {
@@ -289,4 +295,169 @@ export function subscribeSanctuaryLeaderboard(
       }
     }
   );
+}
+
+export const PRAYER_CATEGORIES = [
+  'Personal prayer',
+  'Family',
+  'Health',
+  'Spiritual growth',
+  'Employment',
+  'Financial needs',
+  'Marriage',
+  'Children',
+  'Thanksgiving',
+  'Other',
+] as const;
+
+export type PrayerPrivacyLevel =
+  | 'confidential'
+  | 'prayer_team'
+  | 'public_board'
+  | 'public_testimony';
+
+export interface PrayerRequestInput {
+  requesterName?: string;
+  phone?: string;
+  email?: string;
+  category: string;
+  requestContent: string;
+  privacyLevel: PrayerPrivacyLevel;
+  followupRequested: boolean;
+  consent: boolean;
+}
+
+export interface FirestorePrayerRequest {
+  id: string;
+  uid: string;
+  referenceNumber: string;
+  requesterName: string;
+  phone: string;
+  email: string;
+  category: string;
+  requestContent: string;
+  privacyLevel: PrayerPrivacyLevel;
+  followupRequested: boolean;
+  consent: boolean;
+  status: 'New' | 'In Prayer' | 'Answered' | 'Archived';
+  createdAtMs: number;
+}
+
+function clampOptionalString(value: string | null | undefined, maxLen: number): string {
+  return (value || '').trim().slice(0, maxLen);
+}
+
+function generateFirestorePrayerRef(): string {
+  const year = new Date().getFullYear();
+  const suffix = Math.random().toString(36).slice(2, 8).toUpperCase().padEnd(6, 'X');
+  return `PRY-${year}-${suffix}`;
+}
+
+export async function submitPrayerRequest(
+  user: User,
+  input: PrayerRequestInput
+): Promise<{ id: string; referenceNumber: string }> {
+  if (!user.emailVerified) {
+    throw new Error('Verified Google email is required to submit to Cloud Firestore.');
+  }
+  const content = clampString(input.requestContent, 4000, '');
+  if (content.length < 5) {
+    throw new Error('Please share your prayer request (at least 5 characters).');
+  }
+  if (!input.consent) {
+    throw new Error('Consent is required to submit a prayer request.');
+  }
+
+  const safeCategory = (PRAYER_CATEGORIES as readonly string[]).includes(input.category)
+    ? input.category
+    : 'Personal prayer';
+  const safePrivacy: PrayerPrivacyLevel = (
+    ['confidential', 'prayer_team', 'public_board', 'public_testimony'] as const
+  ).includes(input.privacyLevel)
+    ? input.privacyLevel
+    : 'confidential';
+
+  const referenceNumber = generateFirestorePrayerRef();
+  const collectionPath = 'prayer_requests';
+
+  try {
+    const docRef = await addDoc(collection(db, collectionPath), {
+      uid: user.uid,
+      referenceNumber,
+      requesterName: clampString(input.requesterName, 120, 'Anonymous'),
+      phone: clampOptionalString(input.phone, 40),
+      email: clampOptionalString(input.email, 160),
+      category: safeCategory,
+      requestContent: content,
+      privacyLevel: safePrivacy,
+      followupRequested: Boolean(input.followupRequested),
+      consent: true,
+      status: 'New',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return { id: docRef.id, referenceNumber };
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, collectionPath);
+  }
+}
+
+export function subscribeUserPrayerRequests(
+  user: User,
+  onData: (items: FirestorePrayerRequest[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  const collectionPath = 'prayer_requests';
+  const q = query(
+    collection(db, collectionPath),
+    where('uid', '==', user.uid),
+    limit(20)
+  );
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items: FirestorePrayerRequest[] = snapshot.docs
+        .map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            uid: String(data.uid || user.uid),
+            referenceNumber: String(data.referenceNumber || ''),
+            requesterName: String(data.requesterName || 'Anonymous'),
+            phone: String(data.phone || ''),
+            email: String(data.email || ''),
+            category: String(data.category || 'Personal prayer'),
+            requestContent: String(data.requestContent || ''),
+            privacyLevel: (data.privacyLevel || 'confidential') as PrayerPrivacyLevel,
+            followupRequested: Boolean(data.followupRequested),
+            consent: Boolean(data.consent),
+            status: (data.status || 'New') as FirestorePrayerRequest['status'],
+            createdAtMs: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
+          };
+        })
+        .sort((a, b) => b.createdAtMs - a.createdAtMs);
+      onData(items);
+    },
+    (error) => {
+      try {
+        handleFirestoreError(error, OperationType.LIST, collectionPath);
+      } catch (wrapped) {
+        if (onError && wrapped instanceof Error) {
+          onError(wrapped);
+        }
+      }
+    }
+  );
+}
+
+export async function deleteUserPrayerRequest(user: User, requestId: string): Promise<void> {
+  if (!user.emailVerified) {
+    throw new Error('Verified Google account is required.');
+  }
+  const path = `prayer_requests/${requestId}`;
+  try {
+    await deleteDoc(doc(db, 'prayer_requests', requestId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
 }

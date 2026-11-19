@@ -169,6 +169,110 @@
         }
       },
       "required": ["uid", "displayName", "bestScore", "bestWave", "totalLambsSaved", "createdAt", "updatedAt"]
+    },
+    "PrayerRequest": {
+      "title": "PrayerRequest",
+      "description": "User-submitted prayer request stored in Cloud Firestore prayer_requests collection with strict PII and privacy isolation.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Verified Firebase Auth UID of the requester.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "referenceNumber": {
+          "type": "string",
+          "description": "Unique prayer reference code (e.g., PRY-2026-AB12CD).",
+          "minLength": 6,
+          "maxLength": 40,
+          "pattern": "^PRY-[0-9]{4}-[A-Z0-9]{4,12}$"
+        },
+        "requesterName": {
+          "type": "string",
+          "description": "Display name or Anonymous.",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "phone": {
+          "type": "string",
+          "description": "Optional private contact phone number.",
+          "minLength": 0,
+          "maxLength": 40
+        },
+        "email": {
+          "type": "string",
+          "description": "Optional private contact email.",
+          "minLength": 0,
+          "maxLength": 160
+        },
+        "category": {
+          "type": "string",
+          "description": "Prayer focus category.",
+          "enum": [
+            "Personal prayer",
+            "Family",
+            "Health",
+            "Spiritual growth",
+            "Employment",
+            "Financial needs",
+            "Marriage",
+            "Children",
+            "Thanksgiving",
+            "Other"
+          ]
+        },
+        "requestContent": {
+          "type": "string",
+          "description": "Submitted prayer request content.",
+          "minLength": 5,
+          "maxLength": 4000
+        },
+        "privacyLevel": {
+          "type": "string",
+          "description": "Privacy level controlling pastoral vs public board visibility.",
+          "enum": ["confidential", "prayer_team", "public_board", "public_testimony"]
+        },
+        "followupRequested": {
+          "type": "boolean",
+          "description": "Whether pastoral follow-up was requested."
+        },
+        "consent": {
+          "type": "boolean",
+          "description": "Explicit user consent flag."
+        },
+        "status": {
+          "type": "string",
+          "description": "Pastoral care lifecycle state.",
+          "enum": ["New", "In Prayer", "Answered", "Archived"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "uid",
+        "referenceNumber",
+        "requesterName",
+        "phone",
+        "email",
+        "category",
+        "requestContent",
+        "privacyLevel",
+        "followupRequested",
+        "consent",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -187,6 +291,10 @@
     "/leaderboard/{userId}": {
       "schema": { "$ref": "#/entities/LeaderboardEntry" },
       "description": "Non-PII community leaderboard entries for Shepherd's Light 2D Sanctuary Game."
+    },
+    "/prayer_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/PrayerRequest" },
+      "description": "Owner-isolated user-submitted prayer requests with optional private contact details."
     }
   }
 }

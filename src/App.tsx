@@ -10,6 +10,7 @@ import { PublicSite } from './components/public/PublicSite';
 import { SanctuaryGame } from './components/public/SanctuaryGame';
 import { TestimoniesPage } from './components/public/TestimoniesPage';
 import { AdminDashboard } from './components/admin/AdminDashboard';
+import { GVCC_DEFAULT_BOOTSTRAP } from './data/gvccDefaultBootstrap';
 import { PublicBootstrap } from './types/church';
 
 function ChurchPlatformApp() {
@@ -36,13 +37,15 @@ function ChurchPlatformApp() {
     try {
       setError(null);
       const res = await fetch('/api/public/bootstrap');
-      if (!res.ok) {
-        throw new Error('Could not load Gracious Voice Celebration Centre data.');
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || !contentType.includes('application/json')) {
+        setData(GVCC_DEFAULT_BOOTSTRAP);
+        return;
       }
       const json: PublicBootstrap = await res.json();
       setData(json);
-    } catch (err: any) {
-      setError(err.message || 'Unable to connect to server.');
+    } catch {
+      setData((prev) => prev || GVCC_DEFAULT_BOOTSTRAP);
     } finally {
       setLoading(false);
     }

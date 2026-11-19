@@ -94,6 +94,45 @@ function validateBookmarkCreate(
   return { allowed: true };
 }
 
+function validatePrayerCreate(
+  auth: MockAuth | null,
+  requestId: string,
+  data: Record<string, any>
+): ValidationResult {
+  if (!isSignedIn(auth)) return { allowed: false, reason: 'PERMISSION_DENIED: unverified auth' };
+  if (!isValidId(requestId)) return { allowed: false, reason: 'PERMISSION_DENIED: invalid request ID' };
+  const allowed = [
+    'uid',
+    'referenceNumber',
+    'requesterName',
+    'phone',
+    'email',
+    'category',
+    'requestContent',
+    'privacyLevel',
+    'followupRequested',
+    'consent',
+    'status',
+    'createdAt',
+    'updatedAt',
+  ];
+  const keys = Object.keys(data);
+  if (!allowed.every((k) => keys.includes(k)) || !keys.every((k) => allowed.includes(k))) {
+    return { allowed: false, reason: 'PERMISSION_DENIED: prayer keys mismatch' };
+  }
+  if (data.uid !== auth!.uid) return { allowed: false, reason: 'PERMISSION_DENIED: uid spoof' };
+  if (typeof data.requestContent !== 'string' || data.requestContent.length < 5 || data.requestContent.length > 4000) {
+    return { allowed: false, reason: 'PERMISSION_DENIED: requestContent size bounds' };
+  }
+  if (data.status !== 'New' || data.consent !== true) {
+    return { allowed: false, reason: 'PERMISSION_DENIED: invalid initial status or consent' };
+  }
+  if (data.createdAt !== REQUEST_TIME_MS || data.updatedAt !== REQUEST_TIME_MS) {
+    return { allowed: false, reason: 'PERMISSION_DENIED: timestamp must equal request.time' };
+  }
+  return { allowed: true };
+}
+
 export function runDirtyDozenChecks() {
   const uidA: MockAuth = { uid: 'userA_123', email: 'memberA@example.com', email_verified: true };
   const uidB: MockAuth = { uid: 'userB_456', email: 'memberB@example.com', email_verified: true };
@@ -201,6 +240,42 @@ export function runDirtyDozenChecks() {
         email: 'memberA@example.com',
         bestScore: -10,
         gamesPlayed: 1,
+        createdAt: REQUEST_TIME_MS,
+        updatedAt: REQUEST_TIME_MS,
+      }),
+    },
+    {
+      name: '11. Prayer Request UID Spoofing & Status Bypass',
+      res: validatePrayerCreate(uidA, 'req_01', {
+        uid: 'userB_456',
+        referenceNumber: 'PRY-2026-AB12CD',
+        requesterName: 'Alice',
+        phone: '',
+        email: '',
+        category: 'Personal prayer',
+        requestContent: 'Please pray for my family.',
+        privacyLevel: 'confidential',
+        followupRequested: false,
+        consent: true,
+        status: 'Answered',
+        createdAt: REQUEST_TIME_MS,
+        updatedAt: REQUEST_TIME_MS,
+      }),
+    },
+    {
+      name: '12. Prayer Request Oversized Content Payload',
+      res: validatePrayerCreate(uidA, 'req_02', {
+        uid: 'userA_123',
+        referenceNumber: 'PRY-2026-AB12CD',
+        requesterName: 'Alice',
+        phone: '',
+        email: '',
+        category: 'Personal prayer',
+        requestContent: 'x'.repeat(4001),
+        privacyLevel: 'confidential',
+        followupRequested: false,
+        consent: true,
+        status: 'New',
         createdAt: REQUEST_TIME_MS,
         updatedAt: REQUEST_TIME_MS,
       }),

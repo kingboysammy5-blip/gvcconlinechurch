@@ -2,10 +2,10 @@ import 'dotenv/config';
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { db } from './src/db/index.ts';
+import { db, isDatabaseConfigured } from './src/db/index.ts';
+import { GVCC_DEFAULT_BOOTSTRAP } from './src/data/gvccDefaultBootstrap.ts';
 import { getGeminiClient } from './src/lib/gemini.ts';
 import {
   auditLogs,
@@ -65,15 +65,19 @@ app.use('/images', express.static(path.resolve(process.cwd(), 'public/images')))
 // ---------------------------------------------------------------------------
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, databaseConfigured: isDatabaseConfigured() });
 });
 
 app.get('/api/public/bootstrap', async (_req, res) => {
+  if (!isDatabaseConfigured()) {
+    return res.json(GVCC_DEFAULT_BOOTSTRAP);
+  }
   try {
     const data = await getPublicBootstrapData();
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to load church data' });
+    console.error('Database bootstrap failed, serving verified baseline:', error);
+    res.json(GVCC_DEFAULT_BOOTSTRAP);
   }
 });
 
@@ -89,6 +93,9 @@ const prayerSchema = z.object({
 });
 
 app.get('/api/public/devotionals', async (_req, res) => {
+  if (!isDatabaseConfigured()) {
+    return res.json(GVCC_DEFAULT_BOOTSTRAP.devotionals);
+  }
   try {
     await ensureSeeded();
     const items = await getPublishedDevotionals();
@@ -113,6 +120,9 @@ const publicTestimonySchema = z.object({
 });
 
 app.get('/api/public/testimonies', async (_req, res) => {
+  if (!isDatabaseConfigured()) {
+    return res.json(GVCC_DEFAULT_BOOTSTRAP.testimonies);
+  }
   try {
     await ensureSeeded();
     const items = await getPublishedTestimonies();
@@ -202,6 +212,9 @@ app.post('/api/public/testimonies/:id/amen', async (req, res) => {
 });
 
 app.get('/api/public/prayers', async (_req, res) => {
+  if (!isDatabaseConfigured()) {
+    return res.json(GVCC_DEFAULT_BOOTSTRAP.publicPrayers);
+  }
   try {
     await ensureSeeded();
     const board = await getPublicPrayerBoard();
@@ -781,11 +794,26 @@ app.post('/api/admin/upload', requireAuth, requireStaff, async (req: AuthRequest
     }
     const ext = matches[1].toLowerCase() === 'jpeg' ? 'jpg' : matches[1].toLowerCase();
     const buffer = Buffer.from(matches[2], 'base64');
-    const uploadsDir = path.resolve(process.cwd(), 'public/images/uploads');
-    fs.mkdirSync(uploadsDir, { recursive: true });
     const safeName = `${Date.now()}-${filename.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32)}.${ext}`;
-    fs.writeFileSync(path.join(uploadsDir, safeName), buffer);
-    res.status(201).json({ url: `/images/uploads/${safeName}`, filename: safeName });
+    const uploadsDir = path.resolve(process.cwd(), 'public/images/uploads');
+
+    try {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+      fs.writeFileSync(path.join(uploadsDir, safeName), buffer);
+      return res.status(201).json({ url: `/images/uploads/${safeName}`, filename: safeName });
+    } catch (fsError: any) {
+      const isReadOnly =
+        fsError?.code === 'EROFS' || fsError?.code === 'EACCES' || fsError?.code === 'EPERM';
+      if (isReadOnly && buffer.length <= 1_500_000) {
+        return res.status(201).json({ url: dataUrl, filename: safeName, storedInline: true });
+      }
+      if (isReadOnly) {
+        return res.status(413).json({
+          error: 'Serverless hosting uses a read-only filesystem. Please keep uploaded images under 1.5 MB or use a hosted image URL.',
+        });
+      }
+      throw fsError;
+    }
   } catch (error: any) {
     console.error('Upload failed:', error);
     res.status(500).json({ error: 'Failed to save uploaded image' });
@@ -2080,6 +2108,7 @@ app.get('/api/admin/export/:type', requireAuth, requireStaff, requirePermission(
 
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -2098,4 +2127,13 @@ async function startServer() {
   });
 }
 
-startServer();
+const isServerlessRuntime = Boolean(
+  process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME
+);
+
+if (!isServerlessRuntime) {
+  startServer();
+}
+
+export { app };
+export default app;

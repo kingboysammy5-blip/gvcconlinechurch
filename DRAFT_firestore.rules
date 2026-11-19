@@ -98,6 +98,33 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidPrayerRequest(data, requestUserId) {
+      return data.keys().hasAll([
+          'uid', 'referenceNumber', 'requesterName', 'phone', 'email',
+          'category', 'requestContent', 'privacyLevel', 'followupRequested',
+          'consent', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'referenceNumber', 'requesterName', 'phone', 'email',
+          'category', 'requestContent', 'privacyLevel', 'followupRequested',
+          'consent', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.uid == requestUserId
+        && data.referenceNumber is string && data.referenceNumber.size() >= 6 && data.referenceNumber.size() <= 40 && data.referenceNumber.matches('^PRY-[0-9]{4}-[A-Z0-9]{4,12}$')
+        && data.requesterName is string && data.requesterName.size() >= 1 && data.requesterName.size() <= 120
+        && data.phone is string && data.phone.size() <= 40
+        && data.email is string && data.email.size() <= 160
+        && data.category in ['Personal prayer', 'Family', 'Health', 'Spiritual growth', 'Employment', 'Financial needs', 'Marriage', 'Children', 'Thanksgiving', 'Other']
+        && data.requestContent is string && data.requestContent.size() >= 5 && data.requestContent.size() <= 4000
+        && data.privacyLevel in ['confidential', 'prayer_team', 'public_board', 'public_testimony']
+        && data.followupRequested is bool
+        && data.consent is bool
+        && data.status in ['New', 'In Prayer', 'Answered', 'Archived']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     // -------------------------------------------------------------------------
     // /admins/{adminUid} - Explicit role lookup documents
     // -------------------------------------------------------------------------
@@ -144,9 +171,7 @@ service cloud.firestore {
         allow get: if isValidId(userId) && isValidId(bookmarkId)
           && ((isOwner(userId) && parentMatchesOwner()) || isAdmin());
 
-        allow list: if isVerifiedUser()
-          && resource.data.uid == request.auth.uid
-          && request.auth.uid == userId;
+        allow list: if isValidId(userId) && (isOwner(userId) || isAdmin());
 
         allow create: if isValidId(userId) && isValidId(bookmarkId)
           && isOwner(userId)
@@ -182,9 +207,7 @@ service cloud.firestore {
         allow get: if isValidId(userId) && isValidId(runId)
           && ((isOwner(userId) && parentUserMatches()) || isAdmin());
 
-        allow list: if isVerifiedUser()
-          && resource.data.uid == request.auth.uid
-          && request.auth.uid == userId;
+        allow list: if isValidId(userId) && (isOwner(userId) || isAdmin());
 
         allow create: if isValidId(userId) && isValidId(runId)
           && isOwner(userId)
@@ -226,6 +249,43 @@ service cloud.firestore {
         );
 
       allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // /prayer_requests/{requestId} - Owner-Isolated Prayer Requests Collection
+    // -------------------------------------------------------------------------
+    match /prayer_requests/{requestId} {
+      allow get: if isValidId(requestId)
+        && (isAdmin() || (isVerifiedUser() && existing().uid == request.auth.uid));
+
+      allow list: if isVerifiedUser()
+        && (resource.data.uid == request.auth.uid || isAdmin());
+
+      allow create: if isValidId(requestId)
+        && isVerifiedUser()
+        && isValidPrayerRequest(incoming(), request.auth.uid)
+        && incoming().status == 'New'
+        && incoming().consent == true
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(requestId)
+        && (isAdmin() || (isVerifiedUser() && existing().uid == request.auth.uid))
+        && isValidPrayerRequest(incoming(), existing().uid)
+        && incoming().uid == existing().uid
+        && incoming().referenceNumber == existing().referenceNumber
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            existing().status != 'Archived'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['requestContent', 'category', 'privacyLevel', 'followupRequested', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isValidId(requestId)
+        && (isAdmin() || (isVerifiedUser() && existing().uid == request.auth.uid));
     }
   }
 }

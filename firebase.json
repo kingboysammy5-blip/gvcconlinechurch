@@ -1,0 +1,7 @@
+{
+  "firestore": {
+    "database": "ai-studio-gospelvisionchri-0bfa48e6-641b-481a-9bb5-4dd231f51081",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

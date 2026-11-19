@@ -30,6 +30,7 @@ import { HeroSlideshow } from './HeroSlideshow';
 import { ChurchEventsCalendar } from './ChurchEventsCalendar';
 import { ChurchMediaPortal } from './ChurchMediaPortal';
 import { GallerySection } from './GallerySection';
+import { PrayerRequestForm } from './PrayerRequestForm';
 import { SearchStudySection } from './SearchStudySection';
 import {
   EventDetailModal,
@@ -137,24 +138,6 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
   const [activeSermon, setActiveSermon] = useState<Sermon | null>(null);
 
   // Prayer Request Form & Public Prayer Board State
-  const [prayerForm, setPrayerForm] = useState({
-    requesterName: '',
-    phone: '',
-    email: '',
-    category: 'Personal prayer',
-    requestContent: '',
-    privacyLevel: 'public_board' as 'public_board' | 'confidential' | 'prayer_team' | 'public_testimony',
-    followupRequested: false,
-    consent: true,
-  });
-  const [prayerLoading, setPrayerLoading] = useState(false);
-  const [prayerResult, setPrayerResult] = useState<{
-    referenceNumber: string;
-    message: string;
-    isPublic: boolean;
-  } | null>(null);
-  const [prayerError, setPrayerError] = useState<string | null>(null);
-
   const [boardPrayers, setBoardPrayers] = useState<PublicPrayerItem[]>(data.publicPrayers || []);
   const [selectedDevotionalId, setSelectedDevotionalId] = useState<number | null>(null);
   const [boardCategoryFilter, setBoardCategoryFilter] = useState<string>('All');
@@ -253,43 +236,6 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
       }
     } catch {
       // Keep current state if refresh fails transiently
-    }
-  };
-
-  const submitPrayer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setPrayerLoading(true);
-    setPrayerError(null);
-    try {
-      const res = await fetch('/api/public/prayers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(prayerForm),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Submission failed');
-      setPrayerResult({
-        referenceNumber: json.referenceNumber,
-        message: json.message,
-        isPublic: Boolean(json.isPublic),
-      });
-      setPrayerForm({
-        requesterName: '',
-        phone: '',
-        email: '',
-        category: 'Personal prayer',
-        requestContent: '',
-        privacyLevel: 'public_board',
-        followupRequested: false,
-        consent: true,
-      });
-      if (json.isPublic) {
-        await refreshPrayerBoard();
-      }
-    } catch (err: any) {
-      setPrayerError(err.message);
-    } finally {
-      setPrayerLoading(false);
     }
   };
 
@@ -1202,156 +1148,8 @@ export const PublicSite: React.FC<PublicSiteProps> = ({
                 </div>
               </div>
 
-              <div className="lg:col-span-7 bg-[#FBF9F5] text-[#1C1917] p-6 sm:p-8 border border-stone-700">
-                {prayerResult ? (
-                  <div className="py-8 text-center space-y-4">
-                    <CheckCircle2 className="w-10 h-10 text-emerald-700 mx-auto" />
-                    <h3 className="font-serif text-2xl font-medium">
-                      {prayerResult.isPublic ? 'Posted to the Prayer Board' : 'Prayer Request Received'}
-                    </h3>
-                    <p className="text-sm text-stone-600 max-w-md mx-auto">
-                      {prayerResult.message}
-                    </p>
-                    <p className="font-mono text-sm bg-[#F3EFE7] px-4 py-2 inline-block">
-                      Reference ID: {prayerResult.referenceNumber}
-                    </p>
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => setPrayerResult(null)}
-                        className="px-5 py-2.5 bg-[#1C1917] text-white text-xs font-semibold cursor-pointer"
-                      >
-                        Submit Another Request
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <form onSubmit={submitPrayer} className="space-y-4">
-                    <h3 className="font-serif text-2xl font-medium mb-2">Post or Submit a Prayer Request</h3>
-                    {prayerError && (
-                      <p className="text-xs text-red-700 bg-red-50 border border-red-200 p-3">{prayerError}</p>
-                    )}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Name (optional)</label>
-                        <input
-                          value={prayerForm.requesterName}
-                          onChange={(e) => setPrayerForm({ ...prayerForm, requesterName: e.target.value })}
-                          placeholder="Anonymous if blank"
-                          className="w-full px-3 py-2.5 bg-white border border-stone-300 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Phone (kept private)</label>
-                        <input
-                          type="tel"
-                          value={prayerForm.phone}
-                          onChange={(e) => setPrayerForm({ ...prayerForm, phone: e.target.value })}
-                          className="w-full px-3 py-2.5 bg-white border border-stone-300 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Email (kept private)</label>
-                        <input
-                          type="email"
-                          value={prayerForm.email}
-                          onChange={(e) => setPrayerForm({ ...prayerForm, email: e.target.value })}
-                          className="w-full px-3 py-2.5 bg-white border border-stone-300 text-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Prayer category *</label>
-                        <select
-                          value={prayerForm.category}
-                          onChange={(e) => setPrayerForm({ ...prayerForm, category: e.target.value })}
-                          className="w-full px-3 py-2.5 bg-white border border-stone-300 text-sm"
-                        >
-                          {[
-                            'Personal prayer',
-                            'Family',
-                            'Health',
-                            'Spiritual growth',
-                            'Employment',
-                            'Financial needs',
-                            'Marriage',
-                            'Children',
-                            'Thanksgiving',
-                            'Other',
-                          ].map((cat) => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-stone-700 mb-1">Visibility & privacy *</label>
-                        <select
-                          value={prayerForm.privacyLevel}
-                          onChange={(e) => setPrayerForm({ ...prayerForm, privacyLevel: e.target.value as any })}
-                          className="w-full px-3 py-2.5 bg-white border border-stone-300 text-sm"
-                        >
-                          <option value="public_board">Public Prayer Board (Members can pray with you)</option>
-                          <option value="confidential">Confidential (Pastoral leadership only)</option>
-                          <option value="prayer_team">Prayer team (Authorized intercessors only)</option>
-                          <option value="public_testimony">Public thanksgiving / testimony</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-medium text-stone-700 mb-1">Your prayer request *</label>
-                      <textarea
-                        required
-                        rows={4}
-                        value={prayerForm.requestContent}
-                        onChange={(e) => setPrayerForm({ ...prayerForm, requestContent: e.target.value })}
-                        placeholder="Share how the church family or pastoral team can pray with you..."
-                        className="w-full px-3 py-2.5 bg-white border border-stone-300 text-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-2 text-xs text-stone-600">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={prayerForm.followupRequested}
-                          onChange={(e) => setPrayerForm({ ...prayerForm, followupRequested: e.target.checked })}
-                          className="accent-[#9A6B2F]"
-                        />
-                        <span>I would appreciate a pastoral follow-up call or message</span>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          required
-                          checked={prayerForm.consent}
-                          onChange={(e) => setPrayerForm({ ...prayerForm, consent: e.target.checked })}
-                          className="accent-[#9A6B2F]"
-                        />
-                        <span>
-                          I consent to GVCC storing this request securely{' '}
-                          {prayerForm.privacyLevel === 'public_board' || prayerForm.privacyLevel === 'public_testimony'
-                            ? 'and displaying my prayer need (without private phone/email) on the Public Prayer Board.'
-                            : 'for confidential pastoral prayer support.'}
-                        </span>
-                      </label>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={prayerLoading}
-                      className="w-full py-3 bg-[#9A6B2F] hover:bg-[#825824] text-white text-sm font-semibold transition-colors cursor-pointer disabled:opacity-60"
-                    >
-                      {prayerLoading
-                        ? 'Submitting...'
-                        : prayerForm.privacyLevel === 'public_board' || prayerForm.privacyLevel === 'public_testimony'
-                        ? 'Post to Prayer Board'
-                        : 'Send Confidential Request'}
-                    </button>
-                  </form>
-                )}
+              <div className="lg:col-span-7">
+                <PrayerRequestForm onPublicBoardSubmitted={refreshPrayerBoard} />
               </div>
             </div>
 
